@@ -1,0 +1,26 @@
+{
+  "name": "taleorience-backend",
+  "version": "1.0.0",
+  "description": "TaleOrience World Engine backend",
+  "main": "index.js",
+  "scripts": {
+    "dev": "pnpm --filter @taleorience/api start:dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier --write ."
+  },
+  "keywords": [],
+  "author": "mechv0d",
+  "private": true,
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.22.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module"
+}
