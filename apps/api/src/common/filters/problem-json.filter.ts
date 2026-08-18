@@ -4,14 +4,10 @@ import {
   ExceptionFilter,
   Logger,
   NotFoundException,
+  HttpException, // <--- Добавь импорт
 } from '@nestjs/common';
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { DomainError } from '../errors/domain-error';
-
-interface HttpLikeError {
-  statusCode?: number;
-  message?: string;
-}
+import { DomainError } from '@taleorience/domain';
 
 @Catch()
 export class ProblemJsonFilter implements ExceptionFilter {
@@ -32,24 +28,25 @@ export class ProblemJsonFilter implements ExceptionFilter {
       code = exception.code;
       messageKey = exception.messageKey;
       params = exception.params;
-
       this.logger.warn(`Domain error: ${code} ${JSON.stringify(params ?? {})}`);
     } else if (exception instanceof NotFoundException) {
-      // NestJS выбрасывает NotFoundException для неизвестных маршрутов
       status = 404;
       code = 'NOT_FOUND';
       messageKey = 'errors.notFound';
       params = { path: request.url };
-
-      this.logger.debug(`Not found: ${request.method} ${request.url}`);
-    } else if (this.isHttpError(exception)) {
-      const httpError = exception as HttpLikeError;
-      status = httpError.statusCode ?? 500;
-
+      this.logger.warn(`Not found: ${request.url}`);
+    } else if (exception instanceof HttpException) {
+      // <--- Обработка всех HTTP ошибок (400, 401, 403 и т.д.)
+      status = exception.getStatus();
       code = 'HTTP_ERROR';
       messageKey = 'errors.http';
-      params = { status };
 
+      const response = exception.getResponse();
+      if (typeof response === 'string') {
+        params = { message: response };
+      } else if (typeof response === 'object' && response !== null) {
+        params = response as Record<string, unknown>;
+      }
       this.logger.warn(`HTTP error: ${status} ${request.url}`);
     } else {
       this.logger.error(
@@ -69,14 +66,6 @@ export class ProblemJsonFilter implements ExceptionFilter {
         path: request.url,
         timestamp: new Date().toISOString(),
       });
-  }
-
-  private isHttpError(exception: unknown): boolean {
-    return (
-      typeof exception === 'object' &&
-      exception !== null &&
-      'statusCode' in exception
-    );
   }
 
   private toKebab(code: string): string {

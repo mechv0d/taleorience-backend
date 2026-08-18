@@ -25,6 +25,15 @@
   },
   "type": "module",
   "dependencies": {
-    "eslint": "^9.39.5"
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.2",
+    "eslint": "^9.39.5",
+    "postgres": "^3.4.9",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.9.3"
   }
 }

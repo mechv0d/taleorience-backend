@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AppConfigService } from '../config/app-config.service';
-import { DomainError } from '../common/errors/domain-error';
+import { DomainError } from '@taleorience/domain';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Dirent } from 'node:fs';
