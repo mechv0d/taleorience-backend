@@ -1,1 +1,10 @@
-﻿{}
+{
+  "internal": "Внутренняя ошибка сервера",
+  "notFound": "Ресурс не найден",
+  "http": "HTTP ошибка",
+  "invalidLocale": "Некорректная локаль",
+  "invalidNamespace": "Некорректный namespace локализации",
+  "localeNotFound": "Локаль или namespace не найдены",
+  "localeFileInvalid": "Файл локализации повреждён или некорректен",
+  "projectNotFound": "Проект не найден"
+}
