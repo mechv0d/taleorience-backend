@@ -3,13 +3,38 @@ process.env.DATABASE_URL = 'sqlite::memory:';
 jest.resetModules();
 
 import { Test } from '@nestjs/testing';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module';
 
-interface ProjectResponse { id: string; name: string; }
-interface GameObjectResponse { id: string; projectId: string; name: string; }
-interface PageResponse { id: string; title: string; }
-interface BlockResponse { id: string; type: string; data: Record<string, unknown>; }
+interface ProjectResponse {
+  id: string;
+  name: string;
+}
+interface GameObjectResponse {
+  id: string;
+  projectId: string;
+  name: string;
+}
+interface PageResponse {
+  id: string;
+  title: string;
+}
+interface BlockResponse {
+  id: string;
+  type: string;
+  data: Record<string, unknown>;
+}
+interface ProblemJsonResponse {
+  type: string;
+  code: string;
+  messageKey: string;
+  params?: Record<string, unknown>;
+  path?: string;
+  timestamp?: string;
+}
 
 describe('Phase 1 Core Domain (e2e)', () => {
   let app: NestFastifyApplication;
@@ -18,19 +43,26 @@ describe('Phase 1 Core Domain (e2e)', () => {
   let pageId: string;
 
   beforeAll(async () => {
-    const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
+    const moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleFixture.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+    );
     app.setGlobalPrefix('api/v1');
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });
 
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('1. Create Project', async () => {
     const res = await app.inject({
-      method: 'POST', url: '/api/v1/projects',
-      payload: { name: 'Cool Fantasy', description: 'Test world' }
+      method: 'POST',
+      url: '/api/v1/projects',
+      payload: { name: 'Cool Fantasy', description: 'Test world' },
     });
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.payload) as ProjectResponse;
@@ -40,15 +72,19 @@ describe('Phase 1 Core Domain (e2e)', () => {
 
   it('2. Create GameObject (Auto-creates Main Page)', async () => {
     const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/game-objects`,
-      payload: { name: 'Moonlight Citadel' }
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/game-objects`,
+      payload: { name: 'Moonlight Citadel' },
     });
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.payload) as GameObjectResponse;
     gameObjectId = body.id;
 
     // Проверяем, что страница Main создалась автоматически
-    const pagesRes = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/game-objects/${gameObjectId}/pages` });
+    const pagesRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/projects/${projectId}/game-objects/${gameObjectId}/pages`,
+    });
     const pages = JSON.parse(pagesRes.payload) as PageResponse[];
     expect(pages.length).toBe(1);
     expect(pages[0].title).toBe('Main');
@@ -57,8 +93,9 @@ describe('Phase 1 Core Domain (e2e)', () => {
 
   it('3. Create TextBlock', async () => {
     const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/pages/${pageId}/blocks`,
-      payload: { type: 'text', data: { content: '# Hello World' } }
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/pages/${pageId}/blocks`,
+      payload: { type: 'text', data: { content: '# Hello World' } },
     });
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.payload) as BlockResponse;
@@ -67,23 +104,32 @@ describe('Phase 1 Core Domain (e2e)', () => {
   });
 
   it('4. Block Validation Fails on Invalid Data', async () => {
+    if (!app) throw new Error('App not initialized');
+
     const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/pages/${pageId}/blocks`,
-      payload: { type: 'text', data: { invalidField: 123 } } // Нет content
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/pages/${pageId}/blocks`,
+      payload: { type: 'text', data: { invalidField: 123 } },
     });
+
     expect(res.statusCode).toBe(400);
-    const body = JSON.parse(res.payload);
+
+    const body = JSON.parse(res.payload) as ProblemJsonResponse;
     expect(body.code).toBe('INVALID_BLOCK_DATA');
   });
 
   it('5. Delete GameObject (Cascades Pages and Blocks)', async () => {
     const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/game-objects/${gameObjectId}/delete`
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/game-objects/${gameObjectId}/delete`,
     });
     expect(res.statusCode).toBe(201);
 
     // Проверяем, что страницы удалились
-    const pagesRes = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/game-objects/${gameObjectId}/pages` });
+    const pagesRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/projects/${projectId}/game-objects/${gameObjectId}/pages`,
+    });
     const pages = JSON.parse(pagesRes.payload) as PageResponse[];
     expect(pages.length).toBe(0);
   });
