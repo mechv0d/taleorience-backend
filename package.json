@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "pnpm --filter @taleorience/api start:dev",
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
-    "lint": "eslint .",
-    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:e2e": "pnpm -r --if-present test:e2e",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
     "format": "prettier --write ."
   },
   "keywords": [],
@@ -22,5 +23,8 @@
       "onFail": "download"
     }
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "eslint": "^9.39.5"
+  }
 }
