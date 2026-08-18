@@ -72,7 +72,7 @@
     "typescript-eslint": "^8.20.0",
     "vitest": "^4.1.10"
   },
-  "jest": {
+    "jest": {
     "moduleFileExtensions": [
       "js",
       "json",
@@ -87,6 +87,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@taleorience/(.*)$": "<rootDir>/../../../packages/$1/src"
+    }
   }
 }
