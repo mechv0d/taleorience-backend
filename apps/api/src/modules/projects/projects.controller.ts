@@ -1,10 +1,18 @@
-import { Controller, Get, Post, Body, Param, Delete, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import type { CreateProjectDtoType } from '@taleorience/contracts';
-import { 
-  CreateProjectUseCase, 
-  ListProjectsUseCase, 
-  GetProjectUseCase, 
-  DeleteProjectUseCase 
+import {
+  CreateProjectUseCase,
+  ListProjectsUseCase,
+  GetProjectUseCase,
+  DeleteProjectUseCase,
 } from '@taleorience/application';
 
 @Controller('projects')

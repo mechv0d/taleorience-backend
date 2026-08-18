@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ProjectsController } from './projects.controller';
-import { 
-  CreateProjectUseCase, 
-  ListProjectsUseCase, 
-  GetProjectUseCase, 
+import {
+  CreateProjectUseCase,
+  ListProjectsUseCase,
+  GetProjectUseCase,
   DeleteProjectUseCase,
   ProjectRepository,
-  UnitOfWork
+  UnitOfWork,
 } from '@taleorience/application';
 import { PROJECT_REPOSITORY, UNIT_OF_WORK } from '../tokens';
 
@@ -15,7 +15,8 @@ import { PROJECT_REPOSITORY, UNIT_OF_WORK } from '../tokens';
   providers: [
     {
       provide: CreateProjectUseCase,
-      useFactory: (repo: ProjectRepository, uow: UnitOfWork) => new CreateProjectUseCase(repo, uow),
+      useFactory: (repo: ProjectRepository, uow: UnitOfWork) =>
+        new CreateProjectUseCase(repo, uow),
       inject: [PROJECT_REPOSITORY, UNIT_OF_WORK],
     },
     {
@@ -30,7 +31,8 @@ import { PROJECT_REPOSITORY, UNIT_OF_WORK } from '../tokens';
     },
     {
       provide: DeleteProjectUseCase,
-      useFactory: (repo: ProjectRepository, uow: UnitOfWork) => new DeleteProjectUseCase(repo, uow),
+      useFactory: (repo: ProjectRepository, uow: UnitOfWork) =>
+        new DeleteProjectUseCase(repo, uow),
       inject: [PROJECT_REPOSITORY, UNIT_OF_WORK],
     },
   ],

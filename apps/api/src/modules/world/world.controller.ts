@@ -1,15 +1,23 @@
-import { Controller, Post, Get, Body, Param, ParseUUIDPipe, Inject } from '@nestjs/common';
-import type { 
-  CreateGameObjectDtoType, 
-  CreateBlockDtoType, 
-  UpdateBlockDtoType 
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  Inject,
+} from '@nestjs/common';
+import type {
+  CreateGameObjectDtoType,
+  CreateBlockDtoType,
+  UpdateBlockDtoType,
 } from '@taleorience/contracts';
 import { BlockType } from '@taleorience/domain';
-import { 
-  CreateGameObjectUseCase, 
-  CreateBlockUseCase, 
-  UpdateBlockUseCase, 
-  DeleteGameObjectUseCase 
+import {
+  CreateGameObjectUseCase,
+  CreateBlockUseCase,
+  UpdateBlockUseCase,
+  DeleteGameObjectUseCase,
 } from '@taleorience/application';
 import type { PageRepository, BlockRepository } from '@taleorience/application';
 import { PAGE_REPOSITORY, BLOCK_REPOSITORY } from '../tokens';
@@ -22,7 +30,7 @@ export class WorldController {
     private readonly deleteGameObjectUseCase: DeleteGameObjectUseCase,
     private readonly createBlockUseCase: CreateBlockUseCase,
     private readonly updateBlockUseCase: UpdateBlockUseCase,
-    
+
     // 2. Используем @Inject с токенами для интерфейсов
     @Inject(PAGE_REPOSITORY) private readonly pageRepo: PageRepository,
     @Inject(BLOCK_REPOSITORY) private readonly blockRepo: BlockRepository,
@@ -30,10 +38,14 @@ export class WorldController {
 
   @Post('game-objects')
   createGameObject(
-    @Param('projectId', ParseUUIDPipe) projectId: string, 
-    @Body() dto: CreateGameObjectDtoType
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: CreateGameObjectDtoType,
   ) {
-    return this.createGameObjectUseCase.execute(projectId, dto.name, dto.parentId ?? null);
+    return this.createGameObjectUseCase.execute(
+      projectId,
+      dto.name,
+      dto.parentId ?? null,
+    );
   }
 
   @Get('game-objects/:goId/pages')
@@ -45,15 +57,20 @@ export class WorldController {
   createBlock(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('pageId', ParseUUIDPipe) pageId: string,
-    @Body() dto: CreateBlockDtoType
+    @Body() dto: CreateBlockDtoType,
   ) {
-    return this.createBlockUseCase.execute(projectId, pageId, dto.type as BlockType, dto.data);
+    return this.createBlockUseCase.execute(
+      projectId,
+      pageId,
+      dto.type as BlockType,
+      dto.data,
+    );
   }
 
   @Post('blocks/:blockId/update')
   updateBlock(
-    @Param('blockId', ParseUUIDPipe) blockId: string, 
-    @Body() dto: UpdateBlockDtoType
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @Body() dto: UpdateBlockDtoType,
   ) {
     return this.updateBlockUseCase.execute(blockId, dto.data);
   }

@@ -31,7 +31,9 @@ const SQL_SCHEMA = `
       provide: DB_CONNECTION, // <--- Используем токен
       useFactory: () => {
         const isTest = process.env.NODE_ENV === 'test';
-        const sqlite = new Database(isTest ? ':memory:' : './data/taleorience.db');
+        const sqlite = new Database(
+          isTest ? ':memory:' : './data/taleorience.db',
+        );
         sqlite.exec(SQL_SCHEMA);
         return drizzle(sqlite, { schema });
       },
