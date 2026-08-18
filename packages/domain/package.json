@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b",
     "test": "echo \"Error: no test specified\""
   },
   "keywords": [],
