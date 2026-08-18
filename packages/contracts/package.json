@@ -4,11 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\""
+    "test": "echo \"Error: no test specified\"",
+    "typecheck": "tsc -b"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "private": "true"
 }

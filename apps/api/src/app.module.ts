@@ -5,23 +5,23 @@ import { validateEnv } from './config/env.schema';
 import { AppConfigModule } from './config/app-config.module';
 import { SystemModule } from './system/system.module';
 import { LocalizationModule } from './localization/localization.module';
+import { DatabaseModule } from './database/database.module';
+import { PersistenceModule } from './persistence/persistence.module'; // <--- Добавлено
+import { ProjectsModule } from './modules/projects/projects.module';
+import { WorldModule } from './modules/world/world.module';
 import { ProblemJsonFilter } from './common/filters/problem-json.filter';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validate: validateEnv,
-    }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     AppConfigModule,
+    DatabaseModule,
+    PersistenceModule, // <--- Добавлено
     SystemModule,
     LocalizationModule,
+    ProjectsModule,
+    WorldModule,
   ],
-  providers: [
-    {
-      provide: APP_FILTER,
-      useClass: ProblemJsonFilter,
-    },
-  ],
+  providers: [{ provide: APP_FILTER, useClass: ProblemJsonFilter }],
 })
 export class AppModule {}
