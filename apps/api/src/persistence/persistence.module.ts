@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Db } from '@taleorience/infrastructure';
 import {
   SqlProjectRepository,
   SqlGameObjectRepository,
@@ -21,27 +21,27 @@ import {
   providers: [
     {
       provide: PROJECT_REPOSITORY,
-      useFactory: (db: BetterSQLite3Database<any>) => new SqlProjectRepository(db),
+      useFactory: (db: Db) => new SqlProjectRepository(db),
       inject: [DB_CONNECTION],
     },
     {
       provide: GAME_OBJECT_REPOSITORY,
-      useFactory: (db: BetterSQLite3Database<any>) => new SqlGameObjectRepository(db),
+      useFactory: (db: Db) => new SqlGameObjectRepository(db),
       inject: [DB_CONNECTION],
     },
     {
       provide: PAGE_REPOSITORY,
-      useFactory: (db: BetterSQLite3Database<any>) => new SqlPageRepository(db),
+      useFactory: (db: Db) => new SqlPageRepository(db),
       inject: [DB_CONNECTION],
     },
     {
       provide: BLOCK_REPOSITORY,
-      useFactory: (db: BetterSQLite3Database<any>) => new SqlBlockRepository(db),
+      useFactory: (db: Db) => new SqlBlockRepository(db),
       inject: [DB_CONNECTION],
     },
     {
       provide: UNIT_OF_WORK,
-      useFactory: (db: BetterSQLite3Database<any>) => new DrizzleUnitOfWork(db),
+      useFactory: (db: Db) => new DrizzleUnitOfWork(db),
       inject: [DB_CONNECTION],
     },
   ],

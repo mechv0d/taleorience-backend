@@ -7,7 +7,7 @@ import {
 } from '@taleorience/application';
 import { Project, GameObject, Page, Block, Guid, BlockType } from '@taleorience/domain';
 
-type Db = BetterSQLite3Database<typeof schema>;
+export type Db = BetterSQLite3Database<typeof schema>;
 
 // --- Unit of Work ---
 export class DrizzleUnitOfWork implements UnitOfWork {
