@@ -36,6 +36,17 @@ export class AppConfigService {
     return 'unknown';
   }
 
+  get sqliteDatabasePath(): string {
+    const url = this.databaseUrl;
+
+    if (url.startsWith('sqlite:')) {
+      const target = url.slice('sqlite:'.length).replace(/^\/+/, '');
+      return target || './data/taleorience.db';
+    }
+
+    return './data/taleorience.db';
+  }
+
   get storageDriver(): string {
     return this.configService.get('STORAGE_DRIVER') ?? 'local';
   }

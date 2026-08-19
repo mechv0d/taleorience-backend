@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SqlAssetFolderRepository = exports.SqlAssetRepository = exports.SqlBlockRepository = exports.SqlPageRepository = exports.SqlGameObjectRepository = exports.SqlProjectRepository = exports.DrizzleUnitOfWork = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const schema = __importStar(require("./schema"));
+const mappers_1 = require("./mappers");
 // --- Unit of Work ---
 class DrizzleUnitOfWork {
     db;
@@ -47,55 +48,6 @@ class DrizzleUnitOfWork {
     }
 }
 exports.DrizzleUnitOfWork = DrizzleUnitOfWork;
-// --- Mappers ---
-const mapProject = (row) => ({
-    ...row,
-    createdAt: new Date(row.createdAt),
-    updatedAt: new Date(row.updatedAt),
-});
-const mapGameObject = (row) => ({
-    ...row,
-    createdAt: new Date(row.createdAt),
-    updatedAt: new Date(row.updatedAt),
-});
-const mapPage = (row) => ({
-    ...row,
-    createdAt: new Date(row.createdAt),
-    updatedAt: new Date(row.updatedAt),
-});
-const mapBlock = (row) => ({
-    id: row.id,
-    projectId: row.projectId,
-    pageId: row.pageId,
-    type: row.type,
-    data: JSON.parse(row.dataJson),
-    sortOrder: row.sortOrder,
-    createdAt: new Date(row.createdAt),
-    updatedAt: new Date(row.updatedAt),
-});
-const mapAsset = (row) => ({
-    id: row.id,
-    projectId: row.projectId,
-    folderId: row.folderId,
-    type: row.type,
-    path: row.path,
-    mimeType: row.mimeType,
-    size: row.size,
-    width: row.width,
-    height: row.height,
-    metadata: JSON.parse(row.metadataJson),
-    usageCount: row.usageCount,
-    createdAt: new Date(row.createdAt),
-    updatedAt: new Date(row.updatedAt),
-});
-const mapAssetFolder = (row) => ({
-    id: row.id,
-    projectId: row.projectId,
-    parentId: row.parentId,
-    name: row.name,
-    createdAt: new Date(row.createdAt),
-    updatedAt: new Date(row.updatedAt),
-});
 // --- Implementations ---
 class SqlProjectRepository {
     db;
@@ -104,11 +56,11 @@ class SqlProjectRepository {
     }
     async findById(id) {
         const res = await this.db.select().from(schema.projects).where((0, drizzle_orm_1.eq)(schema.projects.id, id)).get();
-        return res ? mapProject(res) : null;
+        return res ? (0, mappers_1.mapProject)(res) : null;
     }
     async findAll() {
         const res = await this.db.select().from(schema.projects).all();
-        return res.map(mapProject);
+        return res.map(mappers_1.mapProject);
     }
     async save(project) {
         await this.db.insert(schema.projects).values({
@@ -136,11 +88,11 @@ class SqlGameObjectRepository {
     }
     async findById(id) {
         const res = await this.db.select().from(schema.gameObjects).where((0, drizzle_orm_1.eq)(schema.gameObjects.id, id)).get();
-        return res ? mapGameObject(res) : null;
+        return res ? (0, mappers_1.mapGameObject)(res) : null;
     }
     async findByProjectId(projectId) {
         const res = await this.db.select().from(schema.gameObjects).where((0, drizzle_orm_1.eq)(schema.gameObjects.projectId, projectId)).all();
-        return res.map(mapGameObject);
+        return res.map(mappers_1.mapGameObject);
     }
     async save(entity) {
         await this.db.insert(schema.gameObjects).values({
@@ -164,11 +116,11 @@ class SqlPageRepository {
     }
     async findById(id) {
         const res = await this.db.select().from(schema.pages).where((0, drizzle_orm_1.eq)(schema.pages.id, id)).get();
-        return res ? mapPage(res) : null;
+        return res ? (0, mappers_1.mapPage)(res) : null;
     }
     async findByGameObjectId(gameObjectId) {
         const res = await this.db.select().from(schema.pages).where((0, drizzle_orm_1.eq)(schema.pages.gameObjectId, gameObjectId)).all();
-        return res.map(mapPage);
+        return res.map(mappers_1.mapPage);
     }
     async save(entity) {
         await this.db.insert(schema.pages).values({
@@ -192,11 +144,11 @@ class SqlBlockRepository {
     }
     async findById(id) {
         const res = await this.db.select().from(schema.blocks).where((0, drizzle_orm_1.eq)(schema.blocks.id, id)).get();
-        return res ? mapBlock(res) : null;
+        return res ? (0, mappers_1.mapBlock)(res) : null;
     }
     async findByPageId(pageId) {
         const res = await this.db.select().from(schema.blocks).where((0, drizzle_orm_1.eq)(schema.blocks.pageId, pageId)).all();
-        return res.map(mapBlock);
+        return res.map(mappers_1.mapBlock);
     }
     async save(entity) {
         await this.db.insert(schema.blocks).values({
@@ -222,17 +174,17 @@ class SqlAssetRepository {
     async findById(id, trx) {
         const db = trx ?? this.db;
         const res = await db.select().from(schema.assets).where((0, drizzle_orm_1.eq)(schema.assets.id, id)).get();
-        return res ? mapAsset(res) : null;
+        return res ? (0, mappers_1.mapAsset)(res) : null;
     }
     async findByProjectId(projectId, trx) {
         const db = trx ?? this.db;
         const res = await db.select().from(schema.assets).where((0, drizzle_orm_1.eq)(schema.assets.projectId, projectId)).all();
-        return res.map(mapAsset);
+        return res.map(mappers_1.mapAsset);
     }
     async findByFolderId(folderId, trx) {
         const db = trx ?? this.db;
         const res = await db.select().from(schema.assets).where((0, drizzle_orm_1.eq)(schema.assets.folderId, folderId)).all();
-        return res.map(mapAsset);
+        return res.map(mappers_1.mapAsset);
     }
     async save(asset, trx) {
         const db = trx ?? this.db;
@@ -291,12 +243,12 @@ class SqlAssetFolderRepository {
     async findById(id, trx) {
         const db = trx ?? this.db;
         const res = await db.select().from(schema.assetFolders).where((0, drizzle_orm_1.eq)(schema.assetFolders.id, id)).get();
-        return res ? mapAssetFolder(res) : null;
+        return res ? (0, mappers_1.mapAssetFolder)(res) : null;
     }
     async findByProjectId(projectId, trx) {
         const db = trx ?? this.db;
         const res = await db.select().from(schema.assetFolders).where((0, drizzle_orm_1.eq)(schema.assetFolders.projectId, projectId)).all();
-        return res.map(mapAssetFolder);
+        return res.map(mappers_1.mapAssetFolder);
     }
     async findByParentId(parentId, projectId, trx) {
         const db = trx ?? this.db;
@@ -304,7 +256,7 @@ class SqlAssetFolderRepository {
             ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.assetFolders.projectId, projectId), (0, drizzle_orm_1.isNull)(schema.assetFolders.parentId))
             : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.assetFolders.projectId, projectId), (0, drizzle_orm_1.eq)(schema.assetFolders.parentId, parentId));
         const res = await db.select().from(schema.assetFolders).where(condition).all();
-        return res.map(mapAssetFolder);
+        return res.map(mappers_1.mapAssetFolder);
     }
     async save(folder, trx) {
         const db = trx ?? this.db;

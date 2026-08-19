@@ -5,7 +5,8 @@ import {
   ProjectRepository, GameObjectRepository, PageRepository, BlockRepository,
   TransactionContext, UnitOfWork, AssetRepository, AssetFolderRepository
 } from '@taleorience/application';
-import { Project, GameObject, Page, Block, Guid, BlockType, Asset, AssetType, AssetFolder } from '@taleorience/domain';
+import { Project, GameObject, Page, Block, Guid, Asset, AssetFolder } from '@taleorience/domain';
+import { mapProject, mapGameObject, mapPage, mapBlock, mapAsset, mapAssetFolder } from './mappers';
 
 export type Db = BetterSQLite3Database<typeof schema>;
 
@@ -16,61 +17,6 @@ export class DrizzleUnitOfWork implements UnitOfWork {
     return callback(this.db);
   }
 }
-
-// --- Mappers ---
-const mapProject = (row: typeof schema.projects.$inferSelect): Project => ({
-  ...row,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
-
-const mapGameObject = (row: typeof schema.gameObjects.$inferSelect): GameObject => ({
-  ...row,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
-
-const mapPage = (row: typeof schema.pages.$inferSelect): Page => ({
-  ...row,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
-
-const mapBlock = (row: typeof schema.blocks.$inferSelect): Block => ({
-  id: row.id,
-  projectId: row.projectId,
-  pageId: row.pageId,
-  type: row.type as BlockType,
-  data: JSON.parse(row.dataJson) as Record<string, unknown>,
-  sortOrder: row.sortOrder,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
-
-const mapAsset = (row: typeof schema.assets.$inferSelect): Asset => ({
-  id: row.id,
-  projectId: row.projectId,
-  folderId: row.folderId,
-  type: row.type as AssetType,
-  path: row.path,
-  mimeType: row.mimeType,
-  size: row.size,
-  width: row.width,
-  height: row.height,
-  metadata: JSON.parse(row.metadataJson) as Record<string, unknown>,
-  usageCount: row.usageCount,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
-
-const mapAssetFolder = (row: typeof schema.assetFolders.$inferSelect): AssetFolder => ({
-  id: row.id,
-  projectId: row.projectId,
-  parentId: row.parentId,
-  name: row.name,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
 
 // --- Implementations ---
 export class SqlProjectRepository implements ProjectRepository {
