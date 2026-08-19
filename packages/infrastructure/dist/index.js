@@ -16,4 +16,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./persistence/schema"), exports);
 __exportStar(require("./persistence/repositories"), exports);
+__exportStar(require("./storage/local-file.storage"), exports);
+__exportStar(require("./storage/thumbnail.generator"), exports);
 //# sourceMappingURL=index.js.map

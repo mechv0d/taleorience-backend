@@ -73,11 +73,12 @@ export declare class UploadAssetUseCase {
 export declare class GetAssetUseCase {
     private readonly assetRepo;
     constructor(assetRepo: AssetRepository);
-    execute(id: Guid): Promise<Asset>;
+    execute(projectId: Guid, id: Guid): Promise<Asset>;
 }
 export declare class ListAssetsUseCase {
     private readonly assetRepo;
-    constructor(assetRepo: AssetRepository);
+    private readonly folderRepo;
+    constructor(assetRepo: AssetRepository, folderRepo: AssetFolderRepository);
     execute(projectId: Guid, folderId?: Guid | null): Promise<Asset[]>;
 }
 export declare class DeleteAssetUseCase {
@@ -85,7 +86,7 @@ export declare class DeleteAssetUseCase {
     private readonly fileStorage;
     private readonly uow;
     constructor(assetRepo: AssetRepository, fileStorage: FileStorage, uow: UnitOfWork);
-    execute(id: Guid): Promise<void>;
+    execute(projectId: Guid, id: Guid): Promise<void>;
 }
 export declare class CreateAssetFolderUseCase {
     private readonly folderRepo;
@@ -103,6 +104,34 @@ export declare class DeleteAssetFolderUseCase {
     private readonly assetRepo;
     private readonly uow;
     constructor(folderRepo: AssetFolderRepository, assetRepo: AssetRepository, uow: UnitOfWork);
-    execute(id: Guid): Promise<void>;
+    execute(projectId: Guid, id: Guid): Promise<void>;
+}
+export declare class UpdateAssetUseCase {
+    private readonly assetRepo;
+    private readonly uow;
+    constructor(assetRepo: AssetRepository, uow: UnitOfWork);
+    execute(projectId: Guid, id: Guid, changes: {
+        folderId?: Guid | null;
+        metadata?: Record<string, unknown>;
+    }): Promise<Asset>;
+}
+export declare class GetAssetContentUseCase {
+    private readonly assetRepo;
+    private readonly fileStorage;
+    constructor(assetRepo: AssetRepository, fileStorage: FileStorage);
+    execute(projectId: Guid, id: Guid): Promise<{
+        buffer: Buffer;
+        mimeType: string;
+        size: number;
+    }>;
+}
+export declare class GetAssetThumbnailUseCase {
+    private readonly assetRepo;
+    private readonly fileStorage;
+    constructor(assetRepo: AssetRepository, fileStorage: FileStorage);
+    execute(projectId: Guid, id: Guid): Promise<{
+        buffer: Buffer;
+        mimeType: string;
+    }>;
 }
 //# sourceMappingURL=use-cases.d.ts.map

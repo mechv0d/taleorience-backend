@@ -5,6 +5,8 @@ import {
   SqlGameObjectRepository,
   SqlPageRepository,
   SqlBlockRepository,
+  SqlAssetRepository,
+  SqlAssetFolderRepository,
   DrizzleUnitOfWork,
 } from '@taleorience/infrastructure';
 import {
@@ -13,6 +15,8 @@ import {
   GAME_OBJECT_REPOSITORY,
   PAGE_REPOSITORY,
   BLOCK_REPOSITORY,
+  ASSET_REPOSITORY,
+  ASSET_FOLDER_REPOSITORY,
   UNIT_OF_WORK,
 } from '../modules/tokens';
 
@@ -40,6 +44,16 @@ import {
       inject: [DB_CONNECTION],
     },
     {
+      provide: ASSET_REPOSITORY,
+      useFactory: (db: Db) => new SqlAssetRepository(db),
+      inject: [DB_CONNECTION],
+    },
+    {
+      provide: ASSET_FOLDER_REPOSITORY,
+      useFactory: (db: Db) => new SqlAssetFolderRepository(db),
+      inject: [DB_CONNECTION],
+    },
+    {
       provide: UNIT_OF_WORK,
       useFactory: (db: Db) => new DrizzleUnitOfWork(db),
       inject: [DB_CONNECTION],
@@ -50,6 +64,8 @@ import {
     GAME_OBJECT_REPOSITORY,
     PAGE_REPOSITORY,
     BLOCK_REPOSITORY,
+    ASSET_REPOSITORY,
+    ASSET_FOLDER_REPOSITORY,
     UNIT_OF_WORK,
   ],
 })

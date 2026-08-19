@@ -175,6 +175,16 @@ export class UploadAssetUseCase {
     const sanitizedFileName = this.sanitizeFileName(file.originalName);
     const path = `projects/${projectId}/assets/${sanitizedFileName}`;
 
+    if (folderId) {
+      const folder = await this.folderRepo.findById(folderId);
+      if (!folder) {
+        throw new DomainError('ASSET_FOLDER_NOT_FOUND', 'errors.assetFolderNotFound', { folderId }, 404);
+      }
+      if (folder.projectId !== projectId) {
+        throw new DomainError('ASSET_FOLDER_NOT_IN_PROJECT', 'errors.assetFolderNotInProject', { folderId }, 403);
+      }
+    }
+
     let width: number | null = null;
     let height: number | null = null;
     let thumbnailPath: string | null = null;
@@ -183,13 +193,6 @@ export class UploadAssetUseCase {
       const dimensions = await this.getImageDimensions(file.buffer);
       width = dimensions.width;
       height = dimensions.height;
-
-      if (folderId) {
-        const folder = await this.folderRepo.findById(folderId);
-        if (folder && folder.projectId !== projectId) {
-          throw new DomainError('ASSET_FOLDER_NOT_IN_PROJECT', 'errors.assetFolderNotInProject', { folderId }, 403);
-        }
-      }
 
       const thumbnailBuffer = await this.thumbnailGenerator.generate(file.buffer, 200, 200);
       const thumbnailFileName = `thumb_${sanitizedFileName}`;
@@ -336,20 +339,33 @@ export class UploadAssetUseCase {
 export class GetAssetUseCase {
   constructor(private readonly assetRepo: AssetRepository) {}
 
-  async execute(id: Guid): Promise<Asset> {
+  async execute(projectId: Guid, id: Guid): Promise<Asset> {
     const asset = await this.assetRepo.findById(id);
     if (!asset) {
       throw new DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+    }
+    if (asset.projectId !== projectId) {
+      throw new DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
     }
     return asset;
   }
 }
 
 export class ListAssetsUseCase {
-  constructor(private readonly assetRepo: AssetRepository) {}
+  constructor(
+    private readonly assetRepo: AssetRepository,
+    private readonly folderRepo: AssetFolderRepository,
+  ) {}
 
   async execute(projectId: Guid, folderId?: Guid | null): Promise<Asset[]> {
     if (folderId !== undefined && folderId !== null) {
+      const folder = await this.folderRepo.findById(folderId);
+      if (!folder) {
+        throw new DomainError('ASSET_FOLDER_NOT_FOUND', 'errors.assetFolderNotFound', { folderId }, 404);
+      }
+      if (folder.projectId !== projectId) {
+        throw new DomainError('ASSET_FOLDER_NOT_IN_PROJECT', 'errors.assetFolderNotInProject', { folderId }, 403);
+      }
       return this.assetRepo.findByFolderId(folderId);
     }
     return this.assetRepo.findByProjectId(projectId);
@@ -363,11 +379,14 @@ export class DeleteAssetUseCase {
     private readonly uow: UnitOfWork,
   ) {}
 
-  async execute(id: Guid): Promise<void> {
+  async execute(projectId: Guid, id: Guid): Promise<void> {
     return this.uow.execute(async (trx) => {
       const asset = await this.assetRepo.findById(id, trx);
       if (!asset) {
         throw new DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+      }
+      if (asset.projectId !== projectId) {
+        throw new DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
       }
 
       if (asset.usageCount > 0) {
@@ -438,11 +457,14 @@ export class DeleteAssetFolderUseCase {
     private readonly uow: UnitOfWork,
   ) {}
 
-  async execute(id: Guid): Promise<void> {
+  async execute(projectId: Guid, id: Guid): Promise<void> {
     return this.uow.execute(async (trx) => {
       const folder = await this.folderRepo.findById(id, trx);
       if (!folder) {
         throw new DomainError('ASSET_FOLDER_NOT_FOUND', 'errors.assetFolderNotFound', { id }, 404);
+      }
+      if (folder.projectId !== projectId) {
+        throw new DomainError('ASSET_FOLDER_NOT_IN_PROJECT', 'errors.assetFolderNotInProject', { id }, 403);
       }
 
       const assets = await this.assetRepo.findByFolderId(id, trx);
@@ -457,5 +479,79 @@ export class DeleteAssetFolderUseCase {
 
       await this.folderRepo.delete(id, trx);
     });
+  }
+}
+
+export class UpdateAssetUseCase {
+  constructor(private readonly assetRepo: AssetRepository, private readonly uow: UnitOfWork) {}
+
+  async execute(
+    projectId: Guid,
+    id: Guid,
+    changes: { folderId?: Guid | null; metadata?: Record<string, unknown> },
+  ): Promise<Asset> {
+    return this.uow.execute(async (trx) => {
+      const asset = await this.assetRepo.findById(id, trx);
+      if (!asset) {
+        throw new DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+      }
+      if (asset.projectId !== projectId) {
+        throw new DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
+      }
+
+      asset.folderId = changes.folderId !== undefined ? changes.folderId : asset.folderId;
+      if (changes.metadata) {
+        asset.metadata = { ...asset.metadata, ...changes.metadata };
+      }
+      asset.updatedAt = new Date();
+
+      await this.assetRepo.save(asset, trx);
+      return asset;
+    });
+  }
+}
+
+export class GetAssetContentUseCase {
+  constructor(
+    private readonly assetRepo: AssetRepository,
+    private readonly fileStorage: FileStorage,
+  ) {}
+
+  async execute(projectId: Guid, id: Guid): Promise<{ buffer: Buffer; mimeType: string; size: number }> {
+    const asset = await this.assetRepo.findById(id);
+    if (!asset) {
+      throw new DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+    }
+    if (asset.projectId !== projectId) {
+      throw new DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
+    }
+
+    const buffer = await this.fileStorage.get(asset.path);
+    return { buffer, mimeType: asset.mimeType, size: buffer.length };
+  }
+}
+
+export class GetAssetThumbnailUseCase {
+  constructor(
+    private readonly assetRepo: AssetRepository,
+    private readonly fileStorage: FileStorage,
+  ) {}
+
+  async execute(projectId: Guid, id: Guid): Promise<{ buffer: Buffer; mimeType: string }> {
+    const asset = await this.assetRepo.findById(id);
+    if (!asset) {
+      throw new DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+    }
+    if (asset.projectId !== projectId) {
+      throw new DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
+    }
+
+    const thumbnailPath = asset.metadata['thumbnailPath'] as string | undefined;
+    if (!thumbnailPath) {
+      throw new DomainError('THUMBNAIL_NOT_AVAILABLE', 'errors.thumbnailNotAvailable', { id }, 404);
+    }
+
+    const buffer = await this.fileStorage.get(thumbnailPath);
+    return { buffer, mimeType: 'image/jpeg' };
   }
 }

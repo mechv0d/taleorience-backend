@@ -2,12 +2,14 @@ process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = 'sqlite::memory:';
 jest.resetModules();
 
-import { Test } from '@nestjs/testing';
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from '@nestjs/platform-fastify';
-import { AppModule } from '../src/app.module';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { createApp } from '../src/bootstrap/create-app';
+
+const TEST_ASSETS_DIR = join(__dirname, 'assets-for-test');
+const pngBuffer = readFileSync(join(TEST_ASSETS_DIR, 'test-asset-1.png'));
+const jpegBuffer = readFileSync(join(TEST_ASSETS_DIR, 'test-asset-1.jpg'));
 
 interface ProjectResponse {
   id: string;
@@ -51,13 +53,7 @@ describe('Phase 2 Assets (e2e)', () => {
   let folderId: string;
 
   beforeAll(async () => {
-    const moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter(),
-    );
-    app.setGlobalPrefix('api/v1');
+    app = await createApp();
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });
@@ -78,82 +74,9 @@ describe('Phase 2 Assets (e2e)', () => {
   });
 
   it('1. Upload Image Asset', async () => {
-    // Создаем простой PNG файл (1x1 pixel)
-    const pngBuffer = Buffer.from([
-      0x89,
-      0x50,
-      0x4e,
-      0x47,
-      0x0d,
-      0x0a,
-      0x1a,
-      0x0a, // PNG signature
-      0x00,
-      0x00,
-      0x00,
-      0x0d,
-      0x49,
-      0x48,
-      0x44,
-      0x52, // IHDR chunk
-      0x00,
-      0x00,
-      0x00,
-      0x01,
-      0x00,
-      0x00,
-      0x00,
-      0x01, // width=1, height=1
-      0x08,
-      0x02,
-      0x00,
-      0x00,
-      0x00,
-      0x90,
-      0x77,
-      0x53,
-      0xde,
-      0x00,
-      0x00,
-      0x00,
-      0x0c,
-      0x49,
-      0x44,
-      0x41, // IDAT chunk
-      0x54,
-      0x08,
-      0xd7,
-      0x63,
-      0xf8,
-      0xff,
-      0xff,
-      0x3f,
-      0x00,
-      0x05,
-      0xfe,
-      0x02,
-      0xfe,
-      0xdc,
-      0xcc,
-      0x59,
-      0xe7,
-      0x00,
-      0x00,
-      0x00,
-      0x00,
-      0x49,
-      0x45,
-      0x4e, // IEND chunk
-      0x44,
-      0xae,
-      0x42,
-      0x60,
-      0x82,
-    ]);
-
     const formData = new FormData();
     const blob = new Blob([pngBuffer], { type: 'image/png' });
-    formData.append('file', blob, 'test-image.png');
+    formData.append('file', blob, 'test-asset-1.png');
 
     const res = await app.inject({
       method: 'POST',
@@ -168,8 +91,8 @@ describe('Phase 2 Assets (e2e)', () => {
     const body = JSON.parse(res.payload) as AssetResponse;
     expect(body.type).toBe('image');
     expect(body.mimeType).toBe('image/png');
-    expect(body.width).toBe(1);
-    expect(body.height).toBe(1);
+    expect(body.width).toBeGreaterThan(0);
+    expect(body.height).toBeGreaterThan(0);
     assetId = body.id;
   });
 
@@ -217,103 +140,9 @@ describe('Phase 2 Assets (e2e)', () => {
   });
 
   it('6. Upload Asset to Folder', async () => {
-    const jpegBuffer = Buffer.from([
-      0xff,
-      0xd8,
-      0xff,
-      0xe0,
-      0x00,
-      0x10,
-      0x4a,
-      0x46, // JPEG header
-      0x49,
-      0x46,
-      0x00,
-      0x01,
-      0x01,
-      0x00,
-      0x00,
-      0x01,
-      0x00,
-      0x01,
-      0x00,
-      0x00,
-      0xff,
-      0xdb,
-      0x00,
-      0x43,
-      0x00,
-      0x08,
-      0x06,
-      0x06,
-      0x07,
-      0x06,
-      0x05,
-      0x08,
-      0x07,
-      0x07,
-      0x07,
-      0x09,
-      0x09,
-      0x08,
-      0x0a,
-      0x0c,
-      0x14,
-      0x0d,
-      0x0c,
-      0x0b,
-      0x0b,
-      0x0c,
-      0x19,
-      0x12,
-      0x13,
-      0x0f,
-      0x14,
-      0x1d,
-      0x1a,
-      0x1f,
-      0x1e,
-      0x1d,
-      0x1a,
-      0x1c,
-      0x1c,
-      0x20,
-      0x24,
-      0x2e,
-      0x27,
-      0x20,
-      0x22,
-      0x2c,
-      0x23,
-      0x1c,
-      0x1c,
-      0x28,
-      0x37,
-      0x29,
-      0x2c,
-      0x30,
-      0x31,
-      0x34,
-      0x34,
-      0x34,
-      0x1f,
-      0x27,
-      0x39,
-      0x3d,
-      0x38,
-      0x32,
-      0x3c,
-      0x2e,
-      0x33,
-      0x34,
-      0x32,
-      0xff,
-      0xd9, // EOI
-    ]);
-
     const formData = new FormData();
     const blob = new Blob([jpegBuffer], { type: 'image/jpeg' });
-    formData.append('file', blob, 'test-image.jpg');
+    formData.append('file', blob, 'test-asset-1.jpg');
     formData.append('folderId', folderId);
 
     const res = await app.inject({

@@ -300,9 +300,10 @@ class SqlAssetFolderRepository {
     }
     async findByParentId(parentId, projectId, trx) {
         const db = trx ?? this.db;
-        const res = await db.select().from(schema.assetFolders)
-            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.assetFolders.projectId, projectId), parentId === null ? (0, drizzle_orm_1.eq)(schema.assetFolders.parentId, null) : (0, drizzle_orm_1.eq)(schema.assetFolders.parentId, parentId)))
-            .all();
+        const condition = parentId === null
+            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.assetFolders.projectId, projectId), (0, drizzle_orm_1.isNull)(schema.assetFolders.parentId))
+            : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.assetFolders.projectId, projectId), (0, drizzle_orm_1.eq)(schema.assetFolders.parentId, parentId));
+        const res = await db.select().from(schema.assetFolders).where(condition).all();
         return res.map(mapAssetFolder);
     }
     async save(folder, trx) {

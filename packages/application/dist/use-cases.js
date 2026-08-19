@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DeleteAssetFolderUseCase = exports.ListAssetFoldersUseCase = exports.CreateAssetFolderUseCase = exports.DeleteAssetUseCase = exports.ListAssetsUseCase = exports.GetAssetUseCase = exports.UploadAssetUseCase = exports.UpdateBlockUseCase = exports.CreateBlockUseCase = exports.DeleteGameObjectUseCase = exports.CreateGameObjectUseCase = exports.DeleteProjectUseCase = exports.ListProjectsUseCase = exports.GetProjectUseCase = exports.CreateProjectUseCase = void 0;
+exports.GetAssetThumbnailUseCase = exports.GetAssetContentUseCase = exports.UpdateAssetUseCase = exports.DeleteAssetFolderUseCase = exports.ListAssetFoldersUseCase = exports.CreateAssetFolderUseCase = exports.DeleteAssetUseCase = exports.ListAssetsUseCase = exports.GetAssetUseCase = exports.UploadAssetUseCase = exports.UpdateBlockUseCase = exports.CreateBlockUseCase = exports.DeleteGameObjectUseCase = exports.CreateGameObjectUseCase = exports.DeleteProjectUseCase = exports.ListProjectsUseCase = exports.GetProjectUseCase = exports.CreateProjectUseCase = void 0;
 const domain_1 = require("@taleorience/domain");
 // --- PROJECTS ---
 class CreateProjectUseCase {
@@ -198,6 +198,15 @@ class UploadAssetUseCase {
         this.validateFile(file);
         const sanitizedFileName = this.sanitizeFileName(file.originalName);
         const path = `projects/${projectId}/assets/${sanitizedFileName}`;
+        if (folderId) {
+            const folder = await this.folderRepo.findById(folderId);
+            if (!folder) {
+                throw new domain_1.DomainError('ASSET_FOLDER_NOT_FOUND', 'errors.assetFolderNotFound', { folderId }, 404);
+            }
+            if (folder.projectId !== projectId) {
+                throw new domain_1.DomainError('ASSET_FOLDER_NOT_IN_PROJECT', 'errors.assetFolderNotInProject', { folderId }, 403);
+            }
+        }
         let width = null;
         let height = null;
         let thumbnailPath = null;
@@ -205,12 +214,6 @@ class UploadAssetUseCase {
             const dimensions = await this.getImageDimensions(file.buffer);
             width = dimensions.width;
             height = dimensions.height;
-            if (folderId) {
-                const folder = await this.folderRepo.findById(folderId);
-                if (folder && folder.projectId !== projectId) {
-                    throw new domain_1.DomainError('ASSET_FOLDER_NOT_IN_PROJECT', 'errors.assetFolderNotInProject', { folderId }, 403);
-                }
-            }
             const thumbnailBuffer = await this.thumbnailGenerator.generate(file.buffer, 200, 200);
             const thumbnailFileName = `thumb_${sanitizedFileName}`;
             thumbnailPath = `projects/${projectId}/assets/thumbnails/${thumbnailFileName}`;
@@ -352,10 +355,13 @@ class GetAssetUseCase {
     constructor(assetRepo) {
         this.assetRepo = assetRepo;
     }
-    async execute(id) {
+    async execute(projectId, id) {
         const asset = await this.assetRepo.findById(id);
         if (!asset) {
             throw new domain_1.DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+        }
+        if (asset.projectId !== projectId) {
+            throw new domain_1.DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
         }
         return asset;
     }
@@ -363,11 +369,20 @@ class GetAssetUseCase {
 exports.GetAssetUseCase = GetAssetUseCase;
 class ListAssetsUseCase {
     assetRepo;
-    constructor(assetRepo) {
+    folderRepo;
+    constructor(assetRepo, folderRepo) {
         this.assetRepo = assetRepo;
+        this.folderRepo = folderRepo;
     }
     async execute(projectId, folderId) {
         if (folderId !== undefined && folderId !== null) {
+            const folder = await this.folderRepo.findById(folderId);
+            if (!folder) {
+                throw new domain_1.DomainError('ASSET_FOLDER_NOT_FOUND', 'errors.assetFolderNotFound', { folderId }, 404);
+            }
+            if (folder.projectId !== projectId) {
+                throw new domain_1.DomainError('ASSET_FOLDER_NOT_IN_PROJECT', 'errors.assetFolderNotInProject', { folderId }, 403);
+            }
             return this.assetRepo.findByFolderId(folderId);
         }
         return this.assetRepo.findByProjectId(projectId);
@@ -383,11 +398,14 @@ class DeleteAssetUseCase {
         this.fileStorage = fileStorage;
         this.uow = uow;
     }
-    async execute(id) {
+    async execute(projectId, id) {
         return this.uow.execute(async (trx) => {
             const asset = await this.assetRepo.findById(id, trx);
             if (!asset) {
                 throw new domain_1.DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+            }
+            if (asset.projectId !== projectId) {
+                throw new domain_1.DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
             }
             if (asset.usageCount > 0) {
                 throw new domain_1.DomainError('ASSET_IN_USE', 'errors.assetInUse', { id, usageCount: asset.usageCount }, 409);
@@ -457,11 +475,14 @@ class DeleteAssetFolderUseCase {
         this.assetRepo = assetRepo;
         this.uow = uow;
     }
-    async execute(id) {
+    async execute(projectId, id) {
         return this.uow.execute(async (trx) => {
             const folder = await this.folderRepo.findById(id, trx);
             if (!folder) {
                 throw new domain_1.DomainError('ASSET_FOLDER_NOT_FOUND', 'errors.assetFolderNotFound', { id }, 404);
+            }
+            if (folder.projectId !== projectId) {
+                throw new domain_1.DomainError('ASSET_FOLDER_NOT_IN_PROJECT', 'errors.assetFolderNotInProject', { id }, 403);
             }
             const assets = await this.assetRepo.findByFolderId(id, trx);
             if (assets.length > 0) {
@@ -476,4 +497,75 @@ class DeleteAssetFolderUseCase {
     }
 }
 exports.DeleteAssetFolderUseCase = DeleteAssetFolderUseCase;
+class UpdateAssetUseCase {
+    assetRepo;
+    uow;
+    constructor(assetRepo, uow) {
+        this.assetRepo = assetRepo;
+        this.uow = uow;
+    }
+    async execute(projectId, id, changes) {
+        return this.uow.execute(async (trx) => {
+            const asset = await this.assetRepo.findById(id, trx);
+            if (!asset) {
+                throw new domain_1.DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+            }
+            if (asset.projectId !== projectId) {
+                throw new domain_1.DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
+            }
+            asset.folderId = changes.folderId !== undefined ? changes.folderId : asset.folderId;
+            if (changes.metadata) {
+                asset.metadata = { ...asset.metadata, ...changes.metadata };
+            }
+            asset.updatedAt = new Date();
+            await this.assetRepo.save(asset, trx);
+            return asset;
+        });
+    }
+}
+exports.UpdateAssetUseCase = UpdateAssetUseCase;
+class GetAssetContentUseCase {
+    assetRepo;
+    fileStorage;
+    constructor(assetRepo, fileStorage) {
+        this.assetRepo = assetRepo;
+        this.fileStorage = fileStorage;
+    }
+    async execute(projectId, id) {
+        const asset = await this.assetRepo.findById(id);
+        if (!asset) {
+            throw new domain_1.DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+        }
+        if (asset.projectId !== projectId) {
+            throw new domain_1.DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
+        }
+        const buffer = await this.fileStorage.get(asset.path);
+        return { buffer, mimeType: asset.mimeType, size: buffer.length };
+    }
+}
+exports.GetAssetContentUseCase = GetAssetContentUseCase;
+class GetAssetThumbnailUseCase {
+    assetRepo;
+    fileStorage;
+    constructor(assetRepo, fileStorage) {
+        this.assetRepo = assetRepo;
+        this.fileStorage = fileStorage;
+    }
+    async execute(projectId, id) {
+        const asset = await this.assetRepo.findById(id);
+        if (!asset) {
+            throw new domain_1.DomainError('ASSET_NOT_FOUND', 'errors.assetNotFound', { id }, 404);
+        }
+        if (asset.projectId !== projectId) {
+            throw new domain_1.DomainError('ASSET_NOT_IN_PROJECT', 'errors.assetNotInProject', { id }, 403);
+        }
+        const thumbnailPath = asset.metadata['thumbnailPath'];
+        if (!thumbnailPath) {
+            throw new domain_1.DomainError('THUMBNAIL_NOT_AVAILABLE', 'errors.thumbnailNotAvailable', { id }, 404);
+        }
+        const buffer = await this.fileStorage.get(thumbnailPath);
+        return { buffer, mimeType: 'image/jpeg' };
+    }
+}
+exports.GetAssetThumbnailUseCase = GetAssetThumbnailUseCase;
 //# sourceMappingURL=use-cases.js.map

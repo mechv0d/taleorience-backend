@@ -23,8 +23,18 @@ export declare const CreateBlockDto: z.ZodObject<{
 export declare const UpdateBlockDto: z.ZodObject<{
     data: z.ZodRecord<z.ZodString, z.ZodUnknown>;
 }, z.core.$strip>;
+export declare const CreateAssetFolderDto: z.ZodObject<{
+    name: z.ZodString;
+    parentId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export declare const UpdateAssetDto: z.ZodObject<{
+    folderId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+}, z.core.$strip>;
 export type CreateProjectDtoType = z.infer<typeof CreateProjectDto>;
 export type CreateGameObjectDtoType = z.infer<typeof CreateGameObjectDto>;
 export type CreateBlockDtoType = z.infer<typeof CreateBlockDto>;
 export type UpdateBlockDtoType = z.infer<typeof UpdateBlockDto>;
+export type CreateAssetFolderDtoType = z.infer<typeof CreateAssetFolderDto>;
+export type UpdateAssetDtoType = z.infer<typeof UpdateAssetDto>;
 //# sourceMappingURL=dto.d.ts.map
