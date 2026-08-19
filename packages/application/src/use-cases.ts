@@ -5,6 +5,7 @@ import {
   TagRepository, GameObjectTagRepository, RelationRepository, ReferenceRepository, SearchIndexRepository
 } from './ports';
 import { parseMarkdownReferences } from './markdown-references';
+import { validateBlockData, normalizeBlockData, blockToText } from './block-data';
 
 // --- PROJECTS ---
 export class CreateProjectUseCase {
@@ -114,12 +115,17 @@ export class CreateBlockUseCase {
   
   async execute(projectId: Guid, pageId: Guid, type: BlockType, data: Record<string, unknown>): Promise<Block> {
     this.validateBlockData(type, data);
+    const normalized = normalizeBlockData(type, data);
     
     return this.uow.execute(async (trx) => {
       const now = new Date();
+      const existing = await this.repo.findByPageId(pageId, trx);
+      const nextSortOrder = existing.length > 0
+        ? Math.max(...existing.map((b) => b.sortOrder)) + 1
+        : 0;
       const block: Block = {
-        id: generateGuid(), projectId, pageId, type, data,
-        sortOrder: 0, createdAt: now, updatedAt: now,
+        id: generateGuid(), projectId, pageId, type, data: normalized,
+        sortOrder: nextSortOrder, createdAt: now, updatedAt: now,
       };
       await this.repo.save(block, trx);
 
@@ -171,16 +177,11 @@ export class CreateBlockUseCase {
   }
 
   private blockToText(block: Block): string {
-    if (block.type === BlockType.TEXT) {
-      return typeof block.data['content'] === 'string' ? block.data['content'] : '';
-    }
-    return JSON.stringify(block.data);
+    return blockToText(block);
   }
 
   private validateBlockData(type: BlockType, data: Record<string, unknown>): void {
-    if (type === BlockType.TEXT && typeof data.content !== 'string') {
-      throw new DomainError('INVALID_BLOCK_DATA', 'errors.invalidBlockData', { type });
-    }
+    validateBlockData(type, data);
   }
 }
 
@@ -198,7 +199,7 @@ export class UpdateBlockUseCase {
       if (!block) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
       
       this.validateBlockData(block.type, data);
-      block.data = data;
+      block.data = normalizeBlockData(block.type, data);
       block.updatedAt = new Date();
       await this.repo.save(block, trx);
 
@@ -209,9 +210,7 @@ export class UpdateBlockUseCase {
     });
   }
   private validateBlockData(type: BlockType, data: Record<string, unknown>): void {
-    if (type === BlockType.TEXT && typeof data.content !== 'string') {
-      throw new DomainError('INVALID_BLOCK_DATA', 'errors.invalidBlockData', { type });
-    }
+    validateBlockData(type, data);
   }
   private async syncReferences(block: Block, trx: unknown): Promise<void> {
     if (block.type !== BlockType.TEXT) {
@@ -252,10 +251,74 @@ export class UpdateBlockUseCase {
     }], trx);
   }
   private blockToText(block: Block): string {
-    if (block.type === BlockType.TEXT) {
-      return typeof block.data['content'] === 'string' ? block.data['content'] : '';
-    }
-    return JSON.stringify(block.data);
+    return blockToText(block);
+  }
+}
+
+export class ListPageBlocksUseCase {
+  constructor(private readonly repo: BlockRepository) {}
+  async execute(pageId: Guid): Promise<Block[]> {
+    const blocks = await this.repo.findByPageId(pageId);
+    return blocks.sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+}
+
+export class GetBlockUseCase {
+  constructor(private readonly repo: BlockRepository) {}
+  async execute(id: Guid): Promise<Block> {
+    const block = await this.repo.findById(id);
+    if (!block) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+    return block;
+  }
+}
+
+export class DeleteBlockUseCase {
+  constructor(
+    private readonly repo: BlockRepository,
+    private readonly referenceRepo: ReferenceRepository,
+    private readonly searchIndexRepo: SearchIndexRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+  async execute(id: Guid): Promise<void> {
+    return this.uow.execute(async (trx) => {
+      const block = await this.repo.findById(id, trx);
+      if (!block) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+
+      await this.referenceRepo.deleteBySourceBlockId(id, trx);
+      await this.searchIndexRepo.deleteByEntityId(id, trx);
+      await this.repo.delete(id, trx);
+    });
+  }
+}
+
+export class MoveBlockUseCase {
+  constructor(
+    private readonly repo: BlockRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+  async execute(id: Guid, toIndex: number): Promise<Block[]> {
+    return this.uow.execute(async (trx) => {
+      const block = await this.repo.findById(id, trx);
+      if (!block) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+
+      const blocks = (await this.repo.findByPageId(block.pageId, trx))
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      const fromIndex = blocks.findIndex((b) => b.id === id);
+      if (fromIndex === -1) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+
+      const target = Math.max(0, Math.min(toIndex, blocks.length - 1));
+      const [moved] = blocks.splice(fromIndex, 1);
+      blocks.splice(target, 0, moved);
+
+      const now = new Date();
+      for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i].sortOrder === i) continue;
+        blocks[i].sortOrder = i;
+        blocks[i].updatedAt = now;
+        await this.repo.save(blocks[i], trx);
+      }
+      return blocks;
+    });
   }
 }
 
