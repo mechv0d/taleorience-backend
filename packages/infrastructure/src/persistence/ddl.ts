@@ -26,6 +26,28 @@ export const SQLITE_SCHEMA_DDL = `
     id TEXT PRIMARY KEY, project_id TEXT NOT NULL, parent_id TEXT, name TEXT NOT NULL,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS game_object_tags (
+    game_object_id TEXT NOT NULL, tag_id TEXT NOT NULL, created_at TEXT NOT NULL,
+    PRIMARY KEY (game_object_id, tag_id)
+  );
+  CREATE TABLE IF NOT EXISTS relations (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
+    source_game_object_id TEXT NOT NULL, target_game_object_id TEXT NOT NULL,
+    type TEXT NOT NULL, created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS markdown_references (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
+    source_block_id TEXT NOT NULL, target_game_object_id TEXT NOT NULL,
+    label TEXT, created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS search_index (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
+    entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, text TEXT NOT NULL
+  );
 `;
 
 export const POSTGRES_SCHEMA_DDL = `
@@ -55,5 +77,27 @@ export const POSTGRES_SCHEMA_DDL = `
   CREATE TABLE IF NOT EXISTS asset_folders (
     id TEXT PRIMARY KEY, project_id TEXT NOT NULL, parent_id TEXT, name TEXT NOT NULL,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS game_object_tags (
+    game_object_id TEXT NOT NULL, tag_id TEXT NOT NULL, created_at TEXT NOT NULL,
+    PRIMARY KEY (game_object_id, tag_id)
+  );
+  CREATE TABLE IF NOT EXISTS relations (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
+    source_game_object_id TEXT NOT NULL, target_game_object_id TEXT NOT NULL,
+    type TEXT NOT NULL, created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS markdown_references (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
+    source_block_id TEXT NOT NULL, target_game_object_id TEXT NOT NULL,
+    label TEXT, created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS search_index (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
+    entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, text TEXT NOT NULL
   );
 `;

@@ -1,5 +1,5 @@
 import * as schema from './schema';
-import { Project, GameObject, Page, Block, BlockType, Asset, AssetType, AssetFolder } from '@taleorience/domain';
+import { Project, GameObject, Page, Block, BlockType, Asset, AssetType, AssetFolder, Tag, GameObjectTag, Relation, Reference } from '@taleorience/domain';
 
 type ProjectRow = typeof schema.projects.$inferSelect;
 type GameObjectRow = typeof schema.gameObjects.$inferSelect;
@@ -7,6 +7,10 @@ type PageRow = typeof schema.pages.$inferSelect;
 type BlockRow = typeof schema.blocks.$inferSelect;
 type AssetRow = typeof schema.assets.$inferSelect;
 type AssetFolderRow = typeof schema.assetFolders.$inferSelect;
+type TagRow = typeof schema.tags.$inferSelect;
+type GameObjectTagRow = typeof schema.gameObjectTags.$inferSelect;
+type RelationRow = typeof schema.relations.$inferSelect;
+type ReferenceRow = typeof schema.markdownReferences.$inferSelect;
 
 export const mapProject = (row: ProjectRow): Project => ({
   ...row,
@@ -60,4 +64,36 @@ export const mapAssetFolder = (row: AssetFolderRow): AssetFolder => ({
   name: row.name,
   createdAt: new Date(row.createdAt),
   updatedAt: new Date(row.updatedAt),
+});
+
+export const mapTag = (row: TagRow): Tag => ({
+  id: row.id,
+  projectId: row.projectId,
+  name: row.name,
+  createdAt: new Date(row.createdAt),
+  updatedAt: new Date(row.updatedAt),
+});
+
+export const mapGameObjectTag = (row: GameObjectTagRow): GameObjectTag => ({
+  gameObjectId: row.gameObjectId,
+  tagId: row.tagId,
+  createdAt: new Date(row.createdAt),
+});
+
+export const mapRelation = (row: RelationRow): Relation => ({
+  id: row.id,
+  projectId: row.projectId,
+  sourceGameObjectId: row.sourceGameObjectId,
+  targetGameObjectId: row.targetGameObjectId,
+  type: row.type,
+  createdAt: new Date(row.createdAt),
+});
+
+export const mapReference = (row: ReferenceRow): Reference => ({
+  id: row.id,
+  projectId: row.projectId,
+  sourceBlockId: row.sourceBlockId,
+  targetGameObjectId: row.targetGameObjectId,
+  label: row.label,
+  createdAt: new Date(row.createdAt),
 });

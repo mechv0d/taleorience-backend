@@ -1,8 +1,10 @@
-import { Project, GameObject, Page, Block, BlockType, Guid, generateGuid, DomainError, Asset, AssetType, AssetFolder } from '@taleorience/domain';
+import { Project, GameObject, Page, Block, BlockType, Guid, generateGuid, DomainError, Asset, AssetType, AssetFolder, Tag, GameObjectTag, Relation, Reference } from '@taleorience/domain';
 import { 
   ProjectRepository, GameObjectRepository, PageRepository, BlockRepository, UnitOfWork,
-  AssetRepository, AssetFolderRepository, FileStorage, ThumbnailGenerator
+  AssetRepository, AssetFolderRepository, FileStorage, ThumbnailGenerator,
+  TagRepository, GameObjectTagRepository, RelationRepository, ReferenceRepository, SearchIndexRepository
 } from './ports';
+import { parseMarkdownReferences } from './markdown-references';
 
 // --- PROJECTS ---
 export class CreateProjectUseCase {
@@ -102,7 +104,13 @@ export class DeleteGameObjectUseCase {
 
 // --- BLOCKS ---
 export class CreateBlockUseCase {
-  constructor(private readonly repo: BlockRepository, private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly repo: BlockRepository,
+    private readonly referenceRepo: ReferenceRepository,
+    private readonly goRepo: GameObjectRepository,
+    private readonly searchIndexRepo: SearchIndexRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
   
   async execute(projectId: Guid, pageId: Guid, type: BlockType, data: Record<string, unknown>): Promise<Block> {
     this.validateBlockData(type, data);
@@ -114,8 +122,59 @@ export class CreateBlockUseCase {
         sortOrder: 0, createdAt: now, updatedAt: now,
       };
       await this.repo.save(block, trx);
+
+      await this.syncReferences(block, trx);
+      await this.reindexBlock(block, trx);
+
       return block;
     });
+  }
+
+  private async syncReferences(block: Block, trx: unknown): Promise<void> {
+    if (block.type !== BlockType.TEXT) {
+      return;
+    }
+    const content = typeof block.data['content'] === 'string' ? block.data['content'] : '';
+    const parsed = parseMarkdownReferences(content);
+
+    await this.referenceRepo.deleteBySourceBlockId(block.id, trx);
+
+    for (const ref of parsed) {
+      const target = await this.goRepo.findByName(block.projectId, ref.name, trx);
+      if (!target) {
+        continue;
+      }
+      await this.referenceRepo.save({
+        id: generateGuid(),
+        projectId: block.projectId,
+        sourceBlockId: block.id,
+        targetGameObjectId: target.id,
+        label: ref.label,
+        createdAt: new Date(),
+      }, trx);
+    }
+  }
+
+  private async reindexBlock(block: Block, trx: unknown): Promise<void> {
+    await this.searchIndexRepo.deleteByEntityId(block.id, trx);
+    const text = this.blockToText(block);
+    if (!text) {
+      return;
+    }
+    await this.searchIndexRepo.index([{
+      id: generateGuid(),
+      projectId: block.projectId,
+      entityType: 'block',
+      entityId: block.id,
+      text,
+    }], trx);
+  }
+
+  private blockToText(block: Block): string {
+    if (block.type === BlockType.TEXT) {
+      return typeof block.data['content'] === 'string' ? block.data['content'] : '';
+    }
+    return JSON.stringify(block.data);
   }
 
   private validateBlockData(type: BlockType, data: Record<string, unknown>): void {
@@ -126,7 +185,13 @@ export class CreateBlockUseCase {
 }
 
 export class UpdateBlockUseCase {
-  constructor(private readonly repo: BlockRepository, private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly repo: BlockRepository,
+    private readonly referenceRepo: ReferenceRepository,
+    private readonly goRepo: GameObjectRepository,
+    private readonly searchIndexRepo: SearchIndexRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
   async execute(id: Guid, data: Record<string, unknown>): Promise<Block> {
     return this.uow.execute(async (trx) => {
       const block = await this.repo.findById(id, trx);
@@ -136,6 +201,10 @@ export class UpdateBlockUseCase {
       block.data = data;
       block.updatedAt = new Date();
       await this.repo.save(block, trx);
+
+      await this.syncReferences(block, trx);
+      await this.reindexBlock(block, trx);
+
       return block;
     });
   }
@@ -143,6 +212,50 @@ export class UpdateBlockUseCase {
     if (type === BlockType.TEXT && typeof data.content !== 'string') {
       throw new DomainError('INVALID_BLOCK_DATA', 'errors.invalidBlockData', { type });
     }
+  }
+  private async syncReferences(block: Block, trx: unknown): Promise<void> {
+    if (block.type !== BlockType.TEXT) {
+      return;
+    }
+    const content = typeof block.data['content'] === 'string' ? block.data['content'] : '';
+    const parsed = parseMarkdownReferences(content);
+
+    await this.referenceRepo.deleteBySourceBlockId(block.id, trx);
+
+    for (const ref of parsed) {
+      const target = await this.goRepo.findByName(block.projectId, ref.name, trx);
+      if (!target) {
+        continue;
+      }
+      await this.referenceRepo.save({
+        id: generateGuid(),
+        projectId: block.projectId,
+        sourceBlockId: block.id,
+        targetGameObjectId: target.id,
+        label: ref.label,
+        createdAt: new Date(),
+      }, trx);
+    }
+  }
+  private async reindexBlock(block: Block, trx: unknown): Promise<void> {
+    await this.searchIndexRepo.deleteByEntityId(block.id, trx);
+    const text = this.blockToText(block);
+    if (!text) {
+      return;
+    }
+    await this.searchIndexRepo.index([{
+      id: generateGuid(),
+      projectId: block.projectId,
+      entityType: 'block',
+      entityId: block.id,
+      text,
+    }], trx);
+  }
+  private blockToText(block: Block): string {
+    if (block.type === BlockType.TEXT) {
+      return typeof block.data['content'] === 'string' ? block.data['content'] : '';
+    }
+    return JSON.stringify(block.data);
   }
 }
 
@@ -553,5 +666,327 @@ export class GetAssetThumbnailUseCase {
 
     const buffer = await this.fileStorage.get(thumbnailPath);
     return { buffer, mimeType: 'image/jpeg' };
+  }
+}
+
+// --- TAGS ---
+export class CreateTagUseCase {
+  constructor(private readonly tagRepo: TagRepository, private readonly uow: UnitOfWork) {}
+
+  async execute(projectId: Guid, name: string): Promise<Tag> {
+    const normalized = name.trim();
+    if (!normalized) {
+      throw new DomainError('INVALID_TAG_NAME', 'errors.invalidTagName', { name }, 400);
+    }
+
+    const existing = await this.tagRepo.findByNames(projectId, [normalized]);
+    if (existing.length > 0) {
+      throw new DomainError('TAG_ALREADY_EXISTS', 'errors.tagAlreadyExists', { name: normalized }, 409);
+    }
+
+    return this.uow.execute(async (trx) => {
+      const now = new Date();
+      const tag: Tag = {
+        id: generateGuid(),
+        projectId,
+        name: normalized,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.tagRepo.save(tag, trx);
+      return tag;
+    });
+  }
+}
+
+export class ListTagsUseCase {
+  constructor(private readonly tagRepo: TagRepository) {}
+
+  execute(projectId: Guid): Promise<Tag[]> {
+    return this.tagRepo.findByProjectId(projectId);
+  }
+}
+
+export class DeleteTagUseCase {
+  constructor(
+    private readonly tagRepo: TagRepository,
+    private readonly goTagRepo: GameObjectTagRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+
+  async execute(projectId: Guid, id: Guid): Promise<void> {
+    return this.uow.execute(async (trx) => {
+      const tag = await this.tagRepo.findById(id, trx);
+      if (!tag) {
+        throw new DomainError('TAG_NOT_FOUND', 'errors.tagNotFound', { id }, 404);
+      }
+      if (tag.projectId !== projectId) {
+        throw new DomainError('TAG_NOT_IN_PROJECT', 'errors.tagNotInProject', { id }, 403);
+      }
+
+      const mappings = await this.goTagRepo.findByTagId(id, trx);
+      for (const mapping of mappings) {
+        await this.goTagRepo.remove(mapping.gameObjectId, id, trx);
+      }
+
+      await this.tagRepo.delete(id, trx);
+    });
+  }
+}
+
+export class AddTagToGameObjectUseCase {
+  constructor(
+    private readonly tagRepo: TagRepository,
+    private readonly goTagRepo: GameObjectTagRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+
+  async execute(projectId: Guid, gameObjectId: Guid, tagName: string): Promise<GameObjectTag> {
+    const normalized = tagName.trim();
+    if (!normalized) {
+      throw new DomainError('INVALID_TAG_NAME', 'errors.invalidTagName', { name: tagName }, 400);
+    }
+
+    return this.uow.execute(async (trx) => {
+      const existingTags = await this.tagRepo.findByNames(projectId, [normalized], trx);
+      let tag = existingTags[0] ?? null;
+
+      if (!tag) {
+        const now = new Date();
+        tag = {
+          id: generateGuid(),
+          projectId,
+          name: normalized,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await this.tagRepo.save(tag, trx);
+      }
+
+      const mapping: GameObjectTag = {
+        gameObjectId,
+        tagId: tag.id,
+        createdAt: new Date(),
+      };
+      await this.goTagRepo.add(gameObjectId, tag.id, trx);
+      return mapping;
+    });
+  }
+}
+
+export class RemoveTagFromGameObjectUseCase {
+  constructor(
+    private readonly goTagRepo: GameObjectTagRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+
+  async execute(gameObjectId: Guid, tagId: Guid): Promise<void> {
+    await this.uow.execute(async (trx) => {
+      await this.goTagRepo.remove(gameObjectId, tagId, trx);
+    });
+  }
+}
+
+export class ListGameObjectTagsUseCase {
+  constructor(
+    private readonly goTagRepo: GameObjectTagRepository,
+    private readonly tagRepo: TagRepository,
+  ) {}
+
+  async execute(gameObjectId: Guid): Promise<Tag[]> {
+    const mappings = await this.goTagRepo.findByGameObjectId(gameObjectId);
+    const tags: Tag[] = [];
+    for (const mapping of mappings) {
+      const tag = await this.tagRepo.findById(mapping.tagId);
+      if (tag) {
+        tags.push(tag);
+      }
+    }
+    return tags;
+  }
+}
+
+// --- RELATIONS ---
+export class CreateRelationUseCase {
+  constructor(
+    private readonly relationRepo: RelationRepository,
+    private readonly goRepo: GameObjectRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+
+  async execute(
+    projectId: Guid,
+    sourceGameObjectId: Guid,
+    targetGameObjectId: Guid,
+    type: string,
+  ): Promise<Relation> {
+    if (!type.trim()) {
+      throw new DomainError('INVALID_RELATION_TYPE', 'errors.invalidRelationType', { type }, 400);
+    }
+
+    const source = await this.goRepo.findById(sourceGameObjectId);
+    if (!source) {
+      throw new DomainError('GAME_OBJECT_NOT_FOUND', 'errors.gameObjectNotFound', { id: sourceGameObjectId }, 404);
+    }
+    if (source.projectId !== projectId) {
+      throw new DomainError('GAME_OBJECT_NOT_IN_PROJECT', 'errors.gameObjectNotInProject', { id: sourceGameObjectId }, 403);
+    }
+
+    const target = await this.goRepo.findById(targetGameObjectId);
+    if (!target) {
+      throw new DomainError('GAME_OBJECT_NOT_FOUND', 'errors.gameObjectNotFound', { id: targetGameObjectId }, 404);
+    }
+    if (target.projectId !== projectId) {
+      throw new DomainError('GAME_OBJECT_NOT_IN_PROJECT', 'errors.gameObjectNotInProject', { id: targetGameObjectId }, 403);
+    }
+
+    return this.uow.execute(async (trx) => {
+      const now = new Date();
+      const relation: Relation = {
+        id: generateGuid(),
+        projectId,
+        sourceGameObjectId,
+        targetGameObjectId,
+        type: type.trim(),
+        createdAt: now,
+      };
+      await this.relationRepo.save(relation, trx);
+      return relation;
+    });
+  }
+}
+
+export class ListRelationsUseCase {
+  constructor(private readonly relationRepo: RelationRepository) {}
+
+  execute(projectId: Guid): Promise<Relation[]> {
+    return this.relationRepo.findByProjectId(projectId);
+  }
+}
+
+export class ListGameObjectRelationsUseCase {
+  constructor(private readonly relationRepo: RelationRepository) {}
+
+  async execute(gameObjectId: Guid): Promise<Relation[]> {
+    const outgoing = await this.relationRepo.findBySourceGameObjectId(gameObjectId);
+    const incoming = await this.relationRepo.findByTargetGameObjectId(gameObjectId);
+    return [...outgoing, ...incoming];
+  }
+}
+
+export class DeleteRelationUseCase {
+  constructor(private readonly relationRepo: RelationRepository, private readonly uow: UnitOfWork) {}
+
+  async execute(projectId: Guid, id: Guid): Promise<void> {
+    return this.uow.execute(async (trx) => {
+      const relation = await this.relationRepo.findById(id, trx);
+      if (!relation) {
+        throw new DomainError('RELATION_NOT_FOUND', 'errors.relationNotFound', { id }, 404);
+      }
+      if (relation.projectId !== projectId) {
+        throw new DomainError('RELATION_NOT_IN_PROJECT', 'errors.relationNotInProject', { id }, 403);
+      }
+      await this.relationRepo.delete(id, trx);
+    });
+  }
+}
+
+// --- REFERENCES (markdown [[GameObject]]) ---
+export class SyncBlockReferencesUseCase {
+  constructor(
+    private readonly referenceRepo: ReferenceRepository,
+    private readonly goRepo: GameObjectRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+
+  async execute(blockId: Guid, projectId: Guid, content: string): Promise<Reference[]> {
+    const parsed = parseMarkdownReferences(content);
+
+    return this.uow.execute(async (trx) => {
+      await this.referenceRepo.deleteBySourceBlockId(blockId, trx);
+
+      const references: Reference[] = [];
+      for (const ref of parsed) {
+        const target = await this.goRepo.findByName(projectId, ref.name, trx);
+        if (!target) {
+          continue;
+        }
+
+        const reference: Reference = {
+          id: generateGuid(),
+          projectId,
+          sourceBlockId: blockId,
+          targetGameObjectId: target.id,
+          label: ref.label,
+          createdAt: new Date(),
+        };
+        await this.referenceRepo.save(reference, trx);
+        references.push(reference);
+      }
+
+      return references;
+    });
+  }
+}
+
+export class GetBacklinksUseCase {
+  constructor(
+    private readonly referenceRepo: ReferenceRepository,
+    private readonly blockRepo: BlockRepository,
+    private readonly pageRepo: PageRepository,
+  ) {}
+
+  async execute(projectId: Guid, gameObjectId: Guid): Promise<Array<{
+    referenceId: Guid;
+    blockId: Guid;
+    pageId: Guid;
+    pageTitle: string;
+    label: string | null;
+  }>> {
+    const references = await this.referenceRepo.findByTargetGameObjectId(gameObjectId);
+    const backlinks: Array<{
+      referenceId: Guid;
+      blockId: Guid;
+      pageId: Guid;
+      pageTitle: string;
+      label: string | null;
+    }> = [];
+
+    for (const ref of references) {
+      const block = await this.blockRepo.findById(ref.sourceBlockId);
+      if (!block || block.projectId !== projectId) {
+        continue;
+      }
+      const page = await this.pageRepo.findById(block.pageId);
+      if (!page) {
+        continue;
+      }
+      backlinks.push({
+        referenceId: ref.id,
+        blockId: block.id,
+        pageId: page.id,
+        pageTitle: page.title,
+        label: ref.label,
+      });
+    }
+
+    return backlinks;
+  }
+}
+
+export class ResolveReferencesUseCase {
+  constructor(private readonly goRepo: GameObjectRepository) {}
+
+  async execute(projectId: Guid, query: string, limit = 20): Promise<GameObject[]> {
+    return this.goRepo.searchByName(projectId, query, limit);
+  }
+}
+
+// --- SEARCH INDEX ---
+export class SearchUseCase {
+  constructor(private readonly searchIndexRepo: SearchIndexRepository) {}
+
+  async execute(projectId: Guid, query: string, limit = 20): Promise<import('./ports').SearchIndexEntry[]> {
+    return this.searchIndexRepo.search(projectId, query, limit);
   }
 }

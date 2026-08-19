@@ -30,6 +30,29 @@ export const UpdateAssetDto = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const CreateTagDto = z.object({
+  name: z.string().min(1),
+});
+
+export const AddTagToGameObjectDto = z.object({
+  name: z.string().min(1),
+});
+
+export const CreateRelationDto = z.object({
+  targetGameObjectId: z.string().uuid(),
+  type: z.string().min(1),
+});
+
+export const ResolveReferencesQueryDto = z.object({
+  q: z.string().min(1),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+});
+
+export const SearchQueryDto = z.object({
+  q: z.string().min(1),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+});
+
 // --- Compile-time Types (для TypeScript) ---
 export type CreateProjectDtoType = z.infer<typeof CreateProjectDto>;
 export type CreateGameObjectDtoType = z.infer<typeof CreateGameObjectDto>;
@@ -37,3 +60,8 @@ export type CreateBlockDtoType = z.infer<typeof CreateBlockDto>;
 export type UpdateBlockDtoType = z.infer<typeof UpdateBlockDto>;
 export type CreateAssetFolderDtoType = z.infer<typeof CreateAssetFolderDto>;
 export type UpdateAssetDtoType = z.infer<typeof UpdateAssetDto>;
+export type CreateTagDtoType = z.infer<typeof CreateTagDto>;
+export type AddTagToGameObjectDtoType = z.infer<typeof AddTagToGameObjectDto>;
+export type CreateRelationDtoType = z.infer<typeof CreateRelationDto>;
+export type ResolveReferencesQueryDtoType = z.infer<typeof ResolveReferencesQueryDto>;
+export type SearchQueryDtoType = z.infer<typeof SearchQueryDto>;
