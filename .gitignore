@@ -33,8 +33,5 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
-# Tests
-assets-for-test
-
 # Runtime file storage
 apps/api/storage/
