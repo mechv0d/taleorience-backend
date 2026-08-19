@@ -1,44 +1,38 @@
 import { Module, Global } from '@nestjs/common';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import * as schema from '@taleorience/infrastructure';
-import { DB_CONNECTION } from '../modules/tokens'; // <--- Импорт токена
+import {
+  createDatabaseConnection,
+  Db,
+  PgDb,
+} from '@taleorience/infrastructure';
+import { AppConfigService } from '../config/app-config.service';
+import { DB_CONNECTION } from '../modules/tokens';
 
-const SQL_SCHEMA = `
-  CREATE TABLE IF NOT EXISTS projects (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
-    banner_asset_id TEXT, is_example INTEGER NOT NULL DEFAULT 0, is_read_only INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS game_objects (
-    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, parent_id TEXT, name TEXT NOT NULL,
-    icon TEXT, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS pages (
-    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, game_object_id TEXT NOT NULL, title TEXT NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS blocks (
-    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, page_id TEXT NOT NULL, type TEXT NOT NULL,
-    data_json TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-  );
-`;
+export type DatabaseConnection = Db | PgDb;
 
 @Global()
 @Module({
   providers: [
     {
-      provide: DB_CONNECTION, // <--- Используем токен
-      useFactory: () => {
-        const isTest = process.env.NODE_ENV === 'test';
-        const sqlite = new Database(
-          isTest ? ':memory:' : './data/taleorience.db',
-        );
-        sqlite.exec(SQL_SCHEMA);
-        return drizzle(sqlite, { schema });
+      provide: DB_CONNECTION,
+      inject: [AppConfigService],
+      useFactory: async (
+        config: AppConfigService,
+      ): Promise<DatabaseConnection> => {
+        if (config.databaseProvider === 'postgres') {
+          return createDatabaseConnection({
+            provider: 'postgres',
+            databaseUrl: config.databaseUrl,
+          });
+        }
+
+        return createDatabaseConnection({
+          provider: 'sqlite',
+          databasePath: config.sqliteDatabasePath,
+          isTest: process.env.NODE_ENV === 'test',
+        });
       },
     },
   ],
-  exports: [DB_CONNECTION], // <--- Экспортируем токен
+  exports: [DB_CONNECTION],
 })
 export class DatabaseModule {}

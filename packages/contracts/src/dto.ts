@@ -20,8 +20,20 @@ export const UpdateBlockDto = z.object({
   data: z.record(z.string(), z.unknown()),
 });
 
+export const CreateAssetFolderDto = z.object({
+  name: z.string().min(1),
+  parentId: z.string().uuid().nullable().optional(),
+});
+
+export const UpdateAssetDto = z.object({
+  folderId: z.string().uuid().nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
 // --- Compile-time Types (для TypeScript) ---
 export type CreateProjectDtoType = z.infer<typeof CreateProjectDto>;
 export type CreateGameObjectDtoType = z.infer<typeof CreateGameObjectDto>;
 export type CreateBlockDtoType = z.infer<typeof CreateBlockDto>;
 export type UpdateBlockDtoType = z.infer<typeof UpdateBlockDto>;
+export type CreateAssetFolderDtoType = z.infer<typeof CreateAssetFolderDto>;
+export type UpdateAssetDtoType = z.infer<typeof UpdateAssetDto>;

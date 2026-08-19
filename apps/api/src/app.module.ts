@@ -6,9 +6,10 @@ import { AppConfigModule } from './config/app-config.module';
 import { SystemModule } from './system/system.module';
 import { LocalizationModule } from './localization/localization.module';
 import { DatabaseModule } from './database/database.module';
-import { PersistenceModule } from './persistence/persistence.module'; // <--- Добавлено
+import { PersistenceModule } from './persistence/persistence.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { WorldModule } from './modules/world/world.module';
+import { AssetsModule } from './modules/assets/assets.module';
 import { ProblemJsonFilter } from './common/filters/problem-json.filter';
 
 @Module({
@@ -16,11 +17,12 @@ import { ProblemJsonFilter } from './common/filters/problem-json.filter';
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     AppConfigModule,
     DatabaseModule,
-    PersistenceModule, // <--- Добавлено
+    PersistenceModule,
     SystemModule,
     LocalizationModule,
     ProjectsModule,
     WorldModule,
+    AssetsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemJsonFilter }],
 })

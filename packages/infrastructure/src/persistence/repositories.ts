@@ -1,11 +1,12 @@
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
-import { 
-  ProjectRepository, GameObjectRepository, PageRepository, BlockRepository, 
-  TransactionContext, UnitOfWork 
+import {
+  ProjectRepository, GameObjectRepository, PageRepository, BlockRepository,
+  TransactionContext, UnitOfWork, AssetRepository, AssetFolderRepository
 } from '@taleorience/application';
-import { Project, GameObject, Page, Block, Guid, BlockType } from '@taleorience/domain';
+import { Project, GameObject, Page, Block, Guid, Asset, AssetFolder } from '@taleorience/domain';
+import { mapProject, mapGameObject, mapPage, mapBlock, mapAsset, mapAssetFolder } from './mappers';
 
 export type Db = BetterSQLite3Database<typeof schema>;
 
@@ -13,41 +14,9 @@ export type Db = BetterSQLite3Database<typeof schema>;
 export class DrizzleUnitOfWork implements UnitOfWork {
   constructor(private readonly db: Db) {}
   async execute<T>(callback: (trx: TransactionContext) => Promise<T>): Promise<T> {
-    // В better-sqlite3 транзакции синхронные, но drizzle оборачивает их в async
-    // Для E2E и MVP мы используем callback, передавая сам db как контекст
-    return callback(this.db); 
+    return callback(this.db);
   }
 }
-
-// --- Mappers ---
-const mapProject = (row: typeof schema.projects.$inferSelect): Project => ({
-  ...row,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
-
-const mapGameObject = (row: typeof schema.gameObjects.$inferSelect): GameObject => ({
-  ...row,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
-
-const mapPage = (row: typeof schema.pages.$inferSelect): Page => ({
-  ...row,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
-
-const mapBlock = (row: typeof schema.blocks.$inferSelect): Block => ({
-  id: row.id,
-  projectId: row.projectId,
-  pageId: row.pageId,
-  type: row.type as BlockType, // <--- Явное приведение к enum
-  data: JSON.parse(row.dataJson) as Record<string, unknown>, // <--- Приведение к нужному типу данных
-  sortOrder: row.sortOrder,
-  createdAt: new Date(row.createdAt),
-  updatedAt: new Date(row.updatedAt),
-});
 
 // --- Implementations ---
 export class SqlProjectRepository implements ProjectRepository {
@@ -152,5 +121,112 @@ export class SqlBlockRepository implements BlockRepository {
   }
   async delete(id: Guid): Promise<void> {
     await this.db.delete(schema.blocks).where(eq(schema.blocks.id, id));
+  }
+}
+
+export class SqlAssetRepository implements AssetRepository {
+  constructor(private readonly db: Db) {}
+  async findById(id: Guid, trx?: TransactionContext): Promise<Asset | null> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.assets).where(eq(schema.assets.id, id)).get();
+    return res ? mapAsset(res) : null;
+  }
+  async findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<Asset[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.assets).where(eq(schema.assets.projectId, projectId)).all();
+    return res.map(mapAsset);
+  }
+  async findByFolderId(folderId: Guid, trx?: TransactionContext): Promise<Asset[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.assets).where(eq(schema.assets.folderId, folderId)).all();
+    return res.map(mapAsset);
+  }
+  async save(asset: Asset, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.insert(schema.assets).values({
+      ...asset,
+      metadataJson: JSON.stringify(asset.metadata),
+      createdAt: asset.createdAt.toISOString(),
+      updatedAt: asset.updatedAt.toISOString(),
+    }).onConflictDoUpdate({
+      target: schema.assets.id,
+      set: {
+        folderId: asset.folderId,
+        type: asset.type,
+        path: asset.path,
+        mimeType: asset.mimeType,
+        size: asset.size,
+        width: asset.width,
+        height: asset.height,
+        metadataJson: JSON.stringify(asset.metadata),
+        usageCount: asset.usageCount,
+        updatedAt: asset.updatedAt.toISOString(),
+      }
+    });
+  }
+  async delete(id: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.delete(schema.assets).where(eq(schema.assets.id, id));
+  }
+  async incrementUsageCount(id: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    const current = await db.select().from(schema.assets).where(eq(schema.assets.id, id)).get();
+    if (current) {
+      await db.update(schema.assets).set({ 
+        usageCount: current.usageCount + 1,
+        updatedAt: new Date().toISOString() 
+      }).where(eq(schema.assets.id, id));
+    }
+  }
+  async decrementUsageCount(id: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    const current = await db.select().from(schema.assets).where(eq(schema.assets.id, id)).get();
+    if (current) {
+      await db.update(schema.assets).set({ 
+        usageCount: Math.max(0, current.usageCount - 1),
+        updatedAt: new Date().toISOString() 
+      }).where(eq(schema.assets.id, id));
+    }
+  }
+}
+
+export class SqlAssetFolderRepository implements AssetFolderRepository {
+  constructor(private readonly db: Db) {}
+  async findById(id: Guid, trx?: TransactionContext): Promise<AssetFolder | null> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.assetFolders).where(eq(schema.assetFolders.id, id)).get();
+    return res ? mapAssetFolder(res) : null;
+  }
+  async findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<AssetFolder[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.assetFolders).where(eq(schema.assetFolders.projectId, projectId)).all();
+    return res.map(mapAssetFolder);
+  }
+  async findByParentId(parentId: Guid | null, projectId: Guid, trx?: TransactionContext): Promise<AssetFolder[]> {
+    const db = trx ?? this.db;
+    const condition = parentId === null 
+      ? and(eq(schema.assetFolders.projectId, projectId), isNull(schema.assetFolders.parentId))
+      : and(eq(schema.assetFolders.projectId, projectId), eq(schema.assetFolders.parentId, parentId));
+    const res = await db.select().from(schema.assetFolders).where(condition).all();
+    return res.map(mapAssetFolder);
+  }
+  async save(folder: AssetFolder, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.insert(schema.assetFolders).values({
+      ...folder,
+      createdAt: folder.createdAt.toISOString(),
+      updatedAt: folder.updatedAt.toISOString(),
+    }).onConflictDoUpdate({
+      target: schema.assetFolders.id,
+      set: {
+        parentId: folder.parentId,
+        name: folder.name,
+        updatedAt: folder.updatedAt.toISOString(),
+      }
+    });
+  }
+  async delete(id: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.delete(schema.assetFolders).where(eq(schema.assetFolders.id, id));
   }
 }

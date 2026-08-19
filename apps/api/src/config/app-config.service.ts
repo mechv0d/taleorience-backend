@@ -36,6 +36,17 @@ export class AppConfigService {
     return 'unknown';
   }
 
+  get sqliteDatabasePath(): string {
+    const url = this.databaseUrl;
+
+    if (url.startsWith('sqlite:')) {
+      const target = url.slice('sqlite:'.length).replace(/^\/+/, '');
+      return target || './data/taleorience.db';
+    }
+
+    return './data/taleorience.db';
+  }
+
   get storageDriver(): string {
     return this.configService.get('STORAGE_DRIVER') ?? 'local';
   }
@@ -44,6 +55,32 @@ export class AppConfigService {
     return this.resolvePath(
       this.configService.get('STORAGE_ROOT') ?? './storage',
     );
+  }
+
+  get s3Bucket(): string | undefined {
+    return this.configService.get('S3_BUCKET') ?? undefined;
+  }
+
+  get s3Region(): string | undefined {
+    return this.configService.get('S3_REGION') ?? undefined;
+  }
+
+  get s3Endpoint(): string | undefined {
+    return this.configService.get('S3_ENDPOINT') ?? undefined;
+  }
+
+  get s3ForcePathStyle(): boolean {
+    return (
+      (this.configService.get('S3_FORCE_PATH_STYLE') ?? 'false') === 'true'
+    );
+  }
+
+  get s3AccessKeyId(): string | undefined {
+    return this.configService.get('S3_ACCESS_KEY_ID') ?? undefined;
+  }
+
+  get s3SecretAccessKey(): string | undefined {
+    return this.configService.get('S3_SECRET_ACCESS_KEY') ?? undefined;
   }
 
   get localesRoot(): string {
