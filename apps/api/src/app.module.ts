@@ -10,6 +10,7 @@ import { PersistenceModule } from './persistence/persistence.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { WorldModule } from './modules/world/world.module';
 import { AssetsModule } from './modules/assets/assets.module';
+import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { ProblemJsonFilter } from './common/filters/problem-json.filter';
 
 @Module({
@@ -23,6 +24,7 @@ import { ProblemJsonFilter } from './common/filters/problem-json.filter';
     ProjectsModule,
     WorldModule,
     AssetsModule,
+    KnowledgeModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemJsonFilter }],
 })

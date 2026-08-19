@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GetAssetThumbnailUseCase = exports.GetAssetContentUseCase = exports.UpdateAssetUseCase = exports.DeleteAssetFolderUseCase = exports.ListAssetFoldersUseCase = exports.CreateAssetFolderUseCase = exports.DeleteAssetUseCase = exports.ListAssetsUseCase = exports.GetAssetUseCase = exports.UploadAssetUseCase = exports.UpdateBlockUseCase = exports.CreateBlockUseCase = exports.DeleteGameObjectUseCase = exports.CreateGameObjectUseCase = exports.DeleteProjectUseCase = exports.ListProjectsUseCase = exports.GetProjectUseCase = exports.CreateProjectUseCase = void 0;
+exports.SearchUseCase = exports.ResolveReferencesUseCase = exports.GetBacklinksUseCase = exports.SyncBlockReferencesUseCase = exports.DeleteRelationUseCase = exports.ListGameObjectRelationsUseCase = exports.ListRelationsUseCase = exports.CreateRelationUseCase = exports.ListGameObjectTagsUseCase = exports.RemoveTagFromGameObjectUseCase = exports.AddTagToGameObjectUseCase = exports.DeleteTagUseCase = exports.ListTagsUseCase = exports.CreateTagUseCase = exports.GetAssetThumbnailUseCase = exports.GetAssetContentUseCase = exports.UpdateAssetUseCase = exports.DeleteAssetFolderUseCase = exports.ListAssetFoldersUseCase = exports.CreateAssetFolderUseCase = exports.DeleteAssetUseCase = exports.ListAssetsUseCase = exports.GetAssetUseCase = exports.UploadAssetUseCase = exports.UpdateBlockUseCase = exports.CreateBlockUseCase = exports.DeleteGameObjectUseCase = exports.CreateGameObjectUseCase = exports.DeleteProjectUseCase = exports.ListProjectsUseCase = exports.GetProjectUseCase = exports.CreateProjectUseCase = void 0;
 const domain_1 = require("@taleorience/domain");
+const markdown_references_1 = require("./markdown-references");
 // --- PROJECTS ---
 class CreateProjectUseCase {
     repo;
@@ -123,9 +124,15 @@ exports.DeleteGameObjectUseCase = DeleteGameObjectUseCase;
 // --- BLOCKS ---
 class CreateBlockUseCase {
     repo;
+    referenceRepo;
+    goRepo;
+    searchIndexRepo;
     uow;
-    constructor(repo, uow) {
+    constructor(repo, referenceRepo, goRepo, searchIndexRepo, uow) {
         this.repo = repo;
+        this.referenceRepo = referenceRepo;
+        this.goRepo = goRepo;
+        this.searchIndexRepo = searchIndexRepo;
         this.uow = uow;
     }
     async execute(projectId, pageId, type, data) {
@@ -137,8 +144,52 @@ class CreateBlockUseCase {
                 sortOrder: 0, createdAt: now, updatedAt: now,
             };
             await this.repo.save(block, trx);
+            await this.syncReferences(block, trx);
+            await this.reindexBlock(block, trx);
             return block;
         });
+    }
+    async syncReferences(block, trx) {
+        if (block.type !== domain_1.BlockType.TEXT) {
+            return;
+        }
+        const content = typeof block.data['content'] === 'string' ? block.data['content'] : '';
+        const parsed = (0, markdown_references_1.parseMarkdownReferences)(content);
+        await this.referenceRepo.deleteBySourceBlockId(block.id, trx);
+        for (const ref of parsed) {
+            const target = await this.goRepo.findByName(block.projectId, ref.name, trx);
+            if (!target) {
+                continue;
+            }
+            await this.referenceRepo.save({
+                id: (0, domain_1.generateGuid)(),
+                projectId: block.projectId,
+                sourceBlockId: block.id,
+                targetGameObjectId: target.id,
+                label: ref.label,
+                createdAt: new Date(),
+            }, trx);
+        }
+    }
+    async reindexBlock(block, trx) {
+        await this.searchIndexRepo.deleteByEntityId(block.id, trx);
+        const text = this.blockToText(block);
+        if (!text) {
+            return;
+        }
+        await this.searchIndexRepo.index([{
+                id: (0, domain_1.generateGuid)(),
+                projectId: block.projectId,
+                entityType: 'block',
+                entityId: block.id,
+                text,
+            }], trx);
+    }
+    blockToText(block) {
+        if (block.type === domain_1.BlockType.TEXT) {
+            return typeof block.data['content'] === 'string' ? block.data['content'] : '';
+        }
+        return JSON.stringify(block.data);
     }
     validateBlockData(type, data) {
         if (type === domain_1.BlockType.TEXT && typeof data.content !== 'string') {
@@ -149,9 +200,15 @@ class CreateBlockUseCase {
 exports.CreateBlockUseCase = CreateBlockUseCase;
 class UpdateBlockUseCase {
     repo;
+    referenceRepo;
+    goRepo;
+    searchIndexRepo;
     uow;
-    constructor(repo, uow) {
+    constructor(repo, referenceRepo, goRepo, searchIndexRepo, uow) {
         this.repo = repo;
+        this.referenceRepo = referenceRepo;
+        this.goRepo = goRepo;
+        this.searchIndexRepo = searchIndexRepo;
         this.uow = uow;
     }
     async execute(id, data) {
@@ -163,6 +220,8 @@ class UpdateBlockUseCase {
             block.data = data;
             block.updatedAt = new Date();
             await this.repo.save(block, trx);
+            await this.syncReferences(block, trx);
+            await this.reindexBlock(block, trx);
             return block;
         });
     }
@@ -170,6 +229,48 @@ class UpdateBlockUseCase {
         if (type === domain_1.BlockType.TEXT && typeof data.content !== 'string') {
             throw new domain_1.DomainError('INVALID_BLOCK_DATA', 'errors.invalidBlockData', { type });
         }
+    }
+    async syncReferences(block, trx) {
+        if (block.type !== domain_1.BlockType.TEXT) {
+            return;
+        }
+        const content = typeof block.data['content'] === 'string' ? block.data['content'] : '';
+        const parsed = (0, markdown_references_1.parseMarkdownReferences)(content);
+        await this.referenceRepo.deleteBySourceBlockId(block.id, trx);
+        for (const ref of parsed) {
+            const target = await this.goRepo.findByName(block.projectId, ref.name, trx);
+            if (!target) {
+                continue;
+            }
+            await this.referenceRepo.save({
+                id: (0, domain_1.generateGuid)(),
+                projectId: block.projectId,
+                sourceBlockId: block.id,
+                targetGameObjectId: target.id,
+                label: ref.label,
+                createdAt: new Date(),
+            }, trx);
+        }
+    }
+    async reindexBlock(block, trx) {
+        await this.searchIndexRepo.deleteByEntityId(block.id, trx);
+        const text = this.blockToText(block);
+        if (!text) {
+            return;
+        }
+        await this.searchIndexRepo.index([{
+                id: (0, domain_1.generateGuid)(),
+                projectId: block.projectId,
+                entityType: 'block',
+                entityId: block.id,
+                text,
+            }], trx);
+    }
+    blockToText(block) {
+        if (block.type === domain_1.BlockType.TEXT) {
+            return typeof block.data['content'] === 'string' ? block.data['content'] : '';
+        }
+        return JSON.stringify(block.data);
     }
 }
 exports.UpdateBlockUseCase = UpdateBlockUseCase;
@@ -568,4 +669,323 @@ class GetAssetThumbnailUseCase {
     }
 }
 exports.GetAssetThumbnailUseCase = GetAssetThumbnailUseCase;
+// --- TAGS ---
+class CreateTagUseCase {
+    tagRepo;
+    uow;
+    constructor(tagRepo, uow) {
+        this.tagRepo = tagRepo;
+        this.uow = uow;
+    }
+    async execute(projectId, name) {
+        const normalized = name.trim();
+        if (!normalized) {
+            throw new domain_1.DomainError('INVALID_TAG_NAME', 'errors.invalidTagName', { name }, 400);
+        }
+        const existing = await this.tagRepo.findByNames(projectId, [normalized]);
+        if (existing.length > 0) {
+            throw new domain_1.DomainError('TAG_ALREADY_EXISTS', 'errors.tagAlreadyExists', { name: normalized }, 409);
+        }
+        return this.uow.execute(async (trx) => {
+            const now = new Date();
+            const tag = {
+                id: (0, domain_1.generateGuid)(),
+                projectId,
+                name: normalized,
+                createdAt: now,
+                updatedAt: now,
+            };
+            await this.tagRepo.save(tag, trx);
+            return tag;
+        });
+    }
+}
+exports.CreateTagUseCase = CreateTagUseCase;
+class ListTagsUseCase {
+    tagRepo;
+    constructor(tagRepo) {
+        this.tagRepo = tagRepo;
+    }
+    execute(projectId) {
+        return this.tagRepo.findByProjectId(projectId);
+    }
+}
+exports.ListTagsUseCase = ListTagsUseCase;
+class DeleteTagUseCase {
+    tagRepo;
+    goTagRepo;
+    uow;
+    constructor(tagRepo, goTagRepo, uow) {
+        this.tagRepo = tagRepo;
+        this.goTagRepo = goTagRepo;
+        this.uow = uow;
+    }
+    async execute(projectId, id) {
+        return this.uow.execute(async (trx) => {
+            const tag = await this.tagRepo.findById(id, trx);
+            if (!tag) {
+                throw new domain_1.DomainError('TAG_NOT_FOUND', 'errors.tagNotFound', { id }, 404);
+            }
+            if (tag.projectId !== projectId) {
+                throw new domain_1.DomainError('TAG_NOT_IN_PROJECT', 'errors.tagNotInProject', { id }, 403);
+            }
+            const mappings = await this.goTagRepo.findByTagId(id, trx);
+            for (const mapping of mappings) {
+                await this.goTagRepo.remove(mapping.gameObjectId, id, trx);
+            }
+            await this.tagRepo.delete(id, trx);
+        });
+    }
+}
+exports.DeleteTagUseCase = DeleteTagUseCase;
+class AddTagToGameObjectUseCase {
+    tagRepo;
+    goTagRepo;
+    uow;
+    constructor(tagRepo, goTagRepo, uow) {
+        this.tagRepo = tagRepo;
+        this.goTagRepo = goTagRepo;
+        this.uow = uow;
+    }
+    async execute(projectId, gameObjectId, tagName) {
+        const normalized = tagName.trim();
+        if (!normalized) {
+            throw new domain_1.DomainError('INVALID_TAG_NAME', 'errors.invalidTagName', { name: tagName }, 400);
+        }
+        return this.uow.execute(async (trx) => {
+            const existingTags = await this.tagRepo.findByNames(projectId, [normalized], trx);
+            let tag = existingTags[0] ?? null;
+            if (!tag) {
+                const now = new Date();
+                tag = {
+                    id: (0, domain_1.generateGuid)(),
+                    projectId,
+                    name: normalized,
+                    createdAt: now,
+                    updatedAt: now,
+                };
+                await this.tagRepo.save(tag, trx);
+            }
+            const mapping = {
+                gameObjectId,
+                tagId: tag.id,
+                createdAt: new Date(),
+            };
+            await this.goTagRepo.add(gameObjectId, tag.id, trx);
+            return mapping;
+        });
+    }
+}
+exports.AddTagToGameObjectUseCase = AddTagToGameObjectUseCase;
+class RemoveTagFromGameObjectUseCase {
+    goTagRepo;
+    uow;
+    constructor(goTagRepo, uow) {
+        this.goTagRepo = goTagRepo;
+        this.uow = uow;
+    }
+    async execute(gameObjectId, tagId) {
+        await this.uow.execute(async (trx) => {
+            await this.goTagRepo.remove(gameObjectId, tagId, trx);
+        });
+    }
+}
+exports.RemoveTagFromGameObjectUseCase = RemoveTagFromGameObjectUseCase;
+class ListGameObjectTagsUseCase {
+    goTagRepo;
+    tagRepo;
+    constructor(goTagRepo, tagRepo) {
+        this.goTagRepo = goTagRepo;
+        this.tagRepo = tagRepo;
+    }
+    async execute(gameObjectId) {
+        const mappings = await this.goTagRepo.findByGameObjectId(gameObjectId);
+        const tags = [];
+        for (const mapping of mappings) {
+            const tag = await this.tagRepo.findById(mapping.tagId);
+            if (tag) {
+                tags.push(tag);
+            }
+        }
+        return tags;
+    }
+}
+exports.ListGameObjectTagsUseCase = ListGameObjectTagsUseCase;
+// --- RELATIONS ---
+class CreateRelationUseCase {
+    relationRepo;
+    goRepo;
+    uow;
+    constructor(relationRepo, goRepo, uow) {
+        this.relationRepo = relationRepo;
+        this.goRepo = goRepo;
+        this.uow = uow;
+    }
+    async execute(projectId, sourceGameObjectId, targetGameObjectId, type) {
+        if (!type.trim()) {
+            throw new domain_1.DomainError('INVALID_RELATION_TYPE', 'errors.invalidRelationType', { type }, 400);
+        }
+        const source = await this.goRepo.findById(sourceGameObjectId);
+        if (!source) {
+            throw new domain_1.DomainError('GAME_OBJECT_NOT_FOUND', 'errors.gameObjectNotFound', { id: sourceGameObjectId }, 404);
+        }
+        if (source.projectId !== projectId) {
+            throw new domain_1.DomainError('GAME_OBJECT_NOT_IN_PROJECT', 'errors.gameObjectNotInProject', { id: sourceGameObjectId }, 403);
+        }
+        const target = await this.goRepo.findById(targetGameObjectId);
+        if (!target) {
+            throw new domain_1.DomainError('GAME_OBJECT_NOT_FOUND', 'errors.gameObjectNotFound', { id: targetGameObjectId }, 404);
+        }
+        if (target.projectId !== projectId) {
+            throw new domain_1.DomainError('GAME_OBJECT_NOT_IN_PROJECT', 'errors.gameObjectNotInProject', { id: targetGameObjectId }, 403);
+        }
+        return this.uow.execute(async (trx) => {
+            const now = new Date();
+            const relation = {
+                id: (0, domain_1.generateGuid)(),
+                projectId,
+                sourceGameObjectId,
+                targetGameObjectId,
+                type: type.trim(),
+                createdAt: now,
+            };
+            await this.relationRepo.save(relation, trx);
+            return relation;
+        });
+    }
+}
+exports.CreateRelationUseCase = CreateRelationUseCase;
+class ListRelationsUseCase {
+    relationRepo;
+    constructor(relationRepo) {
+        this.relationRepo = relationRepo;
+    }
+    execute(projectId) {
+        return this.relationRepo.findByProjectId(projectId);
+    }
+}
+exports.ListRelationsUseCase = ListRelationsUseCase;
+class ListGameObjectRelationsUseCase {
+    relationRepo;
+    constructor(relationRepo) {
+        this.relationRepo = relationRepo;
+    }
+    async execute(gameObjectId) {
+        const outgoing = await this.relationRepo.findBySourceGameObjectId(gameObjectId);
+        const incoming = await this.relationRepo.findByTargetGameObjectId(gameObjectId);
+        return [...outgoing, ...incoming];
+    }
+}
+exports.ListGameObjectRelationsUseCase = ListGameObjectRelationsUseCase;
+class DeleteRelationUseCase {
+    relationRepo;
+    uow;
+    constructor(relationRepo, uow) {
+        this.relationRepo = relationRepo;
+        this.uow = uow;
+    }
+    async execute(projectId, id) {
+        return this.uow.execute(async (trx) => {
+            const relation = await this.relationRepo.findById(id, trx);
+            if (!relation) {
+                throw new domain_1.DomainError('RELATION_NOT_FOUND', 'errors.relationNotFound', { id }, 404);
+            }
+            if (relation.projectId !== projectId) {
+                throw new domain_1.DomainError('RELATION_NOT_IN_PROJECT', 'errors.relationNotInProject', { id }, 403);
+            }
+            await this.relationRepo.delete(id, trx);
+        });
+    }
+}
+exports.DeleteRelationUseCase = DeleteRelationUseCase;
+// --- REFERENCES (markdown [[GameObject]]) ---
+class SyncBlockReferencesUseCase {
+    referenceRepo;
+    goRepo;
+    uow;
+    constructor(referenceRepo, goRepo, uow) {
+        this.referenceRepo = referenceRepo;
+        this.goRepo = goRepo;
+        this.uow = uow;
+    }
+    async execute(blockId, projectId, content) {
+        const parsed = (0, markdown_references_1.parseMarkdownReferences)(content);
+        return this.uow.execute(async (trx) => {
+            await this.referenceRepo.deleteBySourceBlockId(blockId, trx);
+            const references = [];
+            for (const ref of parsed) {
+                const target = await this.goRepo.findByName(projectId, ref.name, trx);
+                if (!target) {
+                    continue;
+                }
+                const reference = {
+                    id: (0, domain_1.generateGuid)(),
+                    projectId,
+                    sourceBlockId: blockId,
+                    targetGameObjectId: target.id,
+                    label: ref.label,
+                    createdAt: new Date(),
+                };
+                await this.referenceRepo.save(reference, trx);
+                references.push(reference);
+            }
+            return references;
+        });
+    }
+}
+exports.SyncBlockReferencesUseCase = SyncBlockReferencesUseCase;
+class GetBacklinksUseCase {
+    referenceRepo;
+    blockRepo;
+    pageRepo;
+    constructor(referenceRepo, blockRepo, pageRepo) {
+        this.referenceRepo = referenceRepo;
+        this.blockRepo = blockRepo;
+        this.pageRepo = pageRepo;
+    }
+    async execute(projectId, gameObjectId) {
+        const references = await this.referenceRepo.findByTargetGameObjectId(gameObjectId);
+        const backlinks = [];
+        for (const ref of references) {
+            const block = await this.blockRepo.findById(ref.sourceBlockId);
+            if (!block || block.projectId !== projectId) {
+                continue;
+            }
+            const page = await this.pageRepo.findById(block.pageId);
+            if (!page) {
+                continue;
+            }
+            backlinks.push({
+                referenceId: ref.id,
+                blockId: block.id,
+                pageId: page.id,
+                pageTitle: page.title,
+                label: ref.label,
+            });
+        }
+        return backlinks;
+    }
+}
+exports.GetBacklinksUseCase = GetBacklinksUseCase;
+class ResolveReferencesUseCase {
+    goRepo;
+    constructor(goRepo) {
+        this.goRepo = goRepo;
+    }
+    async execute(projectId, query, limit = 20) {
+        return this.goRepo.searchByName(projectId, query, limit);
+    }
+}
+exports.ResolveReferencesUseCase = ResolveReferencesUseCase;
+// --- SEARCH INDEX ---
+class SearchUseCase {
+    searchIndexRepo;
+    constructor(searchIndexRepo) {
+        this.searchIndexRepo = searchIndexRepo;
+    }
+    async execute(projectId, query, limit = 20) {
+        return this.searchIndexRepo.search(projectId, query, limit);
+    }
+}
+exports.SearchUseCase = SearchUseCase;
 //# sourceMappingURL=use-cases.js.map

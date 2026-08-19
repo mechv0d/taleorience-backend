@@ -1,4 +1,4 @@
-import { Project, GameObject, Page, Block, Guid, Asset, AssetFolder } from '@taleorience/domain';
+import { Project, GameObject, Page, Block, Guid, Asset, AssetFolder, Tag, GameObjectTag, Relation, Reference } from '@taleorience/domain';
 export type TransactionContext = any;
 export interface UnitOfWork {
     execute<T>(callback: (trx: TransactionContext) => Promise<T>): Promise<T>;
@@ -12,6 +12,8 @@ export interface ProjectRepository {
 export interface GameObjectRepository {
     findById(id: Guid, trx?: TransactionContext): Promise<GameObject | null>;
     findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<GameObject[]>;
+    findByName(projectId: Guid, name: string, trx?: TransactionContext): Promise<GameObject | null>;
+    searchByName(projectId: Guid, query: string, limit?: number, trx?: TransactionContext): Promise<GameObject[]>;
     save(entity: GameObject, trx?: TransactionContext): Promise<void>;
     delete(id: Guid, trx?: TransactionContext): Promise<void>;
 }
@@ -57,5 +59,44 @@ export interface FileStorage {
 }
 export interface ThumbnailGenerator {
     generate(imageBuffer: Buffer, width: number, height: number): Promise<Buffer>;
+}
+export interface TagRepository {
+    findById(id: Guid, trx?: TransactionContext): Promise<Tag | null>;
+    findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<Tag[]>;
+    findByNames(projectId: Guid, names: string[], trx?: TransactionContext): Promise<Tag[]>;
+    save(tag: Tag, trx?: TransactionContext): Promise<void>;
+    delete(id: Guid, trx?: TransactionContext): Promise<void>;
+}
+export interface GameObjectTagRepository {
+    findByGameObjectId(gameObjectId: Guid, trx?: TransactionContext): Promise<GameObjectTag[]>;
+    findByTagId(tagId: Guid, trx?: TransactionContext): Promise<GameObjectTag[]>;
+    add(gameObjectId: Guid, tagId: Guid, trx?: TransactionContext): Promise<void>;
+    remove(gameObjectId: Guid, tagId: Guid, trx?: TransactionContext): Promise<void>;
+}
+export interface RelationRepository {
+    findById(id: Guid, trx?: TransactionContext): Promise<Relation | null>;
+    findBySourceGameObjectId(gameObjectId: Guid, trx?: TransactionContext): Promise<Relation[]>;
+    findByTargetGameObjectId(gameObjectId: Guid, trx?: TransactionContext): Promise<Relation[]>;
+    findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<Relation[]>;
+    save(relation: Relation, trx?: TransactionContext): Promise<void>;
+    delete(id: Guid, trx?: TransactionContext): Promise<void>;
+}
+export interface ReferenceRepository {
+    findBySourceBlockId(blockId: Guid, trx?: TransactionContext): Promise<Reference[]>;
+    findByTargetGameObjectId(gameObjectId: Guid, trx?: TransactionContext): Promise<Reference[]>;
+    deleteBySourceBlockId(blockId: Guid, trx?: TransactionContext): Promise<void>;
+    save(reference: Reference, trx?: TransactionContext): Promise<void>;
+}
+export interface SearchIndexEntry {
+    id: Guid;
+    projectId: Guid;
+    entityType: 'gameObject' | 'page' | 'block';
+    entityId: Guid;
+    text: string;
+}
+export interface SearchIndexRepository {
+    index(entries: SearchIndexEntry[], trx?: TransactionContext): Promise<void>;
+    deleteByEntityId(entityId: Guid, trx?: TransactionContext): Promise<void>;
+    search(projectId: Guid, query: string, limit?: number, trx?: TransactionContext): Promise<SearchIndexEntry[]>;
 }
 //# sourceMappingURL=ports.d.ts.map

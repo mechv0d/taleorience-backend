@@ -1,12 +1,13 @@
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, like, desc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import {
   ProjectRepository, GameObjectRepository, PageRepository, BlockRepository,
-  TransactionContext, UnitOfWork, AssetRepository, AssetFolderRepository
+  TransactionContext, UnitOfWork, AssetRepository, AssetFolderRepository,
+  TagRepository, GameObjectTagRepository, RelationRepository, ReferenceRepository, SearchIndexRepository, SearchIndexEntry
 } from '@taleorience/application';
-import { Project, GameObject, Page, Block, Guid, Asset, AssetFolder } from '@taleorience/domain';
-import { mapProject, mapGameObject, mapPage, mapBlock, mapAsset, mapAssetFolder } from './mappers';
+import { Project, GameObject, Page, Block, Guid, Asset, AssetFolder, Tag, GameObjectTag, Relation, Reference } from '@taleorience/domain';
+import { mapProject, mapGameObject, mapPage, mapBlock, mapAsset, mapAssetFolder, mapTag, mapGameObjectTag, mapRelation, mapReference } from './mappers';
 
 export type Db = BetterSQLite3Database<typeof schema>;
 
@@ -56,6 +57,18 @@ export class SqlGameObjectRepository implements GameObjectRepository {
   }
   async findByProjectId(projectId: Guid): Promise<GameObject[]> {
     const res = await this.db.select().from(schema.gameObjects).where(eq(schema.gameObjects.projectId, projectId)).all();
+    return res.map(mapGameObject);
+  }
+  async findByName(projectId: Guid, name: string, trx?: TransactionContext): Promise<GameObject | null> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.gameObjects).where(and(eq(schema.gameObjects.projectId, projectId), eq(schema.gameObjects.name, name))).get();
+    return res ? mapGameObject(res) : null;
+  }
+  async searchByName(projectId: Guid, query: string, limit = 20, trx?: TransactionContext): Promise<GameObject[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.gameObjects)
+      .where(and(eq(schema.gameObjects.projectId, projectId), like(schema.gameObjects.name, `%${query}%`)))
+      .limit(limit).all();
     return res.map(mapGameObject);
   }
   async save(entity: GameObject): Promise<void> {
@@ -228,5 +241,157 @@ export class SqlAssetFolderRepository implements AssetFolderRepository {
   async delete(id: Guid, trx?: TransactionContext): Promise<void> {
     const db = trx ?? this.db;
     await db.delete(schema.assetFolders).where(eq(schema.assetFolders.id, id));
+  }
+}
+
+export class SqlTagRepository implements TagRepository {
+  constructor(private readonly db: Db) {}
+  async findById(id: Guid, trx?: TransactionContext): Promise<Tag | null> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.tags).where(eq(schema.tags.id, id)).get();
+    return res ? mapTag(res) : null;
+  }
+  async findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<Tag[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.tags).where(eq(schema.tags.projectId, projectId)).all();
+    return res.map(mapTag);
+  }
+  async findByNames(projectId: Guid, names: string[], trx?: TransactionContext): Promise<Tag[]> {
+    if (names.length === 0) return [];
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.tags)
+      .where(and(eq(schema.tags.projectId, projectId), ...names.map(n => eq(schema.tags.name, n))))
+      .all();
+    return res.map(mapTag);
+  }
+  async save(tag: Tag, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.insert(schema.tags).values({
+      ...tag,
+      createdAt: tag.createdAt.toISOString(),
+      updatedAt: tag.updatedAt.toISOString(),
+    }).onConflictDoUpdate({
+      target: schema.tags.id,
+      set: { name: tag.name, updatedAt: tag.updatedAt.toISOString() }
+    });
+  }
+  async delete(id: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.delete(schema.tags).where(eq(schema.tags.id, id));
+  }
+}
+
+export class SqlGameObjectTagRepository implements GameObjectTagRepository {
+  constructor(private readonly db: Db) {}
+  async findByGameObjectId(gameObjectId: Guid, trx?: TransactionContext): Promise<GameObjectTag[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.gameObjectTags).where(eq(schema.gameObjectTags.gameObjectId, gameObjectId)).all();
+    return res.map(mapGameObjectTag);
+  }
+  async findByTagId(tagId: Guid, trx?: TransactionContext): Promise<GameObjectTag[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.gameObjectTags).where(eq(schema.gameObjectTags.tagId, tagId)).all();
+    return res.map(mapGameObjectTag);
+  }
+  async add(gameObjectId: Guid, tagId: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.insert(schema.gameObjectTags).values({
+      gameObjectId, tagId, createdAt: new Date().toISOString(),
+    }).onConflictDoNothing();
+  }
+  async remove(gameObjectId: Guid, tagId: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.delete(schema.gameObjectTags).where(and(eq(schema.gameObjectTags.gameObjectId, gameObjectId), eq(schema.gameObjectTags.tagId, tagId)));
+  }
+}
+
+export class SqlRelationRepository implements RelationRepository {
+  constructor(private readonly db: Db) {}
+  async findById(id: Guid, trx?: TransactionContext): Promise<Relation | null> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.relations).where(eq(schema.relations.id, id)).get();
+    return res ? mapRelation(res) : null;
+  }
+  async findBySourceGameObjectId(gameObjectId: Guid, trx?: TransactionContext): Promise<Relation[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.relations).where(eq(schema.relations.sourceGameObjectId, gameObjectId)).all();
+    return res.map(mapRelation);
+  }
+  async findByTargetGameObjectId(gameObjectId: Guid, trx?: TransactionContext): Promise<Relation[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.relations).where(eq(schema.relations.targetGameObjectId, gameObjectId)).all();
+    return res.map(mapRelation);
+  }
+  async findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<Relation[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.relations).where(eq(schema.relations.projectId, projectId)).all();
+    return res.map(mapRelation);
+  }
+  async save(relation: Relation, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.insert(schema.relations).values({
+      ...relation,
+      createdAt: relation.createdAt.toISOString(),
+    }).onConflictDoUpdate({
+      target: schema.relations.id,
+      set: { sourceGameObjectId: relation.sourceGameObjectId, targetGameObjectId: relation.targetGameObjectId, type: relation.type }
+    });
+  }
+  async delete(id: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.delete(schema.relations).where(eq(schema.relations.id, id));
+  }
+}
+
+export class SqlReferenceRepository implements ReferenceRepository {
+  constructor(private readonly db: Db) {}
+  async findBySourceBlockId(blockId: Guid, trx?: TransactionContext): Promise<Reference[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.markdownReferences).where(eq(schema.markdownReferences.sourceBlockId, blockId)).all();
+    return res.map(mapReference);
+  }
+  async findByTargetGameObjectId(gameObjectId: Guid, trx?: TransactionContext): Promise<Reference[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.markdownReferences).where(eq(schema.markdownReferences.targetGameObjectId, gameObjectId)).all();
+    return res.map(mapReference);
+  }
+  async deleteBySourceBlockId(blockId: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.delete(schema.markdownReferences).where(eq(schema.markdownReferences.sourceBlockId, blockId));
+  }
+  async save(reference: Reference, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.insert(schema.markdownReferences).values({
+      ...reference,
+      createdAt: reference.createdAt.toISOString(),
+    }).onConflictDoNothing();
+  }
+}
+
+export class SqlSearchIndexRepository implements SearchIndexRepository {
+  constructor(private readonly db: Db) {}
+  async index(entries: SearchIndexEntry[], trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    for (const entry of entries) {
+      await db.insert(schema.searchIndex).values({
+        id: entry.id, projectId: entry.projectId, entityType: entry.entityType,
+        entityId: entry.entityId, text: entry.text,
+      }).onConflictDoUpdate({
+        target: schema.searchIndex.id,
+        set: { text: entry.text }
+      });
+    }
+  }
+  async deleteByEntityId(entityId: Guid, trx?: TransactionContext): Promise<void> {
+    const db = trx ?? this.db;
+    await db.delete(schema.searchIndex).where(eq(schema.searchIndex.entityId, entityId));
+  }
+  async search(projectId: Guid, query: string, limit = 20, trx?: TransactionContext): Promise<SearchIndexEntry[]> {
+    const db = trx ?? this.db;
+    const res = await db.select().from(schema.searchIndex)
+      .where(and(eq(schema.searchIndex.projectId, projectId), like(schema.searchIndex.text, `%${query}%`)))
+      .orderBy(desc(schema.searchIndex.text))
+      .limit(limit).all();
+    return res;
   }
 }

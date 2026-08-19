@@ -7,6 +7,11 @@ import {
   SqlBlockRepository,
   SqlAssetRepository,
   SqlAssetFolderRepository,
+  SqlTagRepository,
+  SqlGameObjectTagRepository,
+  SqlRelationRepository,
+  SqlReferenceRepository,
+  SqlSearchIndexRepository,
   DrizzleUnitOfWork,
   PgProjectRepository,
   PgGameObjectRepository,
@@ -14,6 +19,11 @@ import {
   PgBlockRepository,
   PgAssetRepository,
   PgAssetFolderRepository,
+  PgTagRepository,
+  PgGameObjectTagRepository,
+  PgRelationRepository,
+  PgReferenceRepository,
+  PgSearchIndexRepository,
   PgUnitOfWork,
 } from '@taleorience/infrastructure';
 import {
@@ -24,6 +34,11 @@ import {
   BLOCK_REPOSITORY,
   ASSET_REPOSITORY,
   ASSET_FOLDER_REPOSITORY,
+  TAG_REPOSITORY,
+  GAME_OBJECT_TAG_REPOSITORY,
+  RELATION_REPOSITORY,
+  REFERENCE_REPOSITORY,
+  SEARCH_INDEX_REPOSITORY,
   UNIT_OF_WORK,
 } from '../modules/tokens';
 import { DatabaseConnection } from '../database/database.module';
@@ -84,6 +99,46 @@ const isPostgres = (config: AppConfigService) =>
       inject: [DB_CONNECTION, AppConfigService],
     },
     {
+      provide: TAG_REPOSITORY,
+      useFactory: (db: DatabaseConnection, config: AppConfigService) =>
+        isPostgres(config)
+          ? new PgTagRepository(db as PgDb)
+          : new SqlTagRepository(db as Db),
+      inject: [DB_CONNECTION, AppConfigService],
+    },
+    {
+      provide: GAME_OBJECT_TAG_REPOSITORY,
+      useFactory: (db: DatabaseConnection, config: AppConfigService) =>
+        isPostgres(config)
+          ? new PgGameObjectTagRepository(db as PgDb)
+          : new SqlGameObjectTagRepository(db as Db),
+      inject: [DB_CONNECTION, AppConfigService],
+    },
+    {
+      provide: RELATION_REPOSITORY,
+      useFactory: (db: DatabaseConnection, config: AppConfigService) =>
+        isPostgres(config)
+          ? new PgRelationRepository(db as PgDb)
+          : new SqlRelationRepository(db as Db),
+      inject: [DB_CONNECTION, AppConfigService],
+    },
+    {
+      provide: REFERENCE_REPOSITORY,
+      useFactory: (db: DatabaseConnection, config: AppConfigService) =>
+        isPostgres(config)
+          ? new PgReferenceRepository(db as PgDb)
+          : new SqlReferenceRepository(db as Db),
+      inject: [DB_CONNECTION, AppConfigService],
+    },
+    {
+      provide: SEARCH_INDEX_REPOSITORY,
+      useFactory: (db: DatabaseConnection, config: AppConfigService) =>
+        isPostgres(config)
+          ? new PgSearchIndexRepository(db as PgDb)
+          : new SqlSearchIndexRepository(db as Db),
+      inject: [DB_CONNECTION, AppConfigService],
+    },
+    {
       provide: UNIT_OF_WORK,
       useFactory: (db: DatabaseConnection, config: AppConfigService) =>
         isPostgres(config)
@@ -99,6 +154,11 @@ const isPostgres = (config: AppConfigService) =>
     BLOCK_REPOSITORY,
     ASSET_REPOSITORY,
     ASSET_FOLDER_REPOSITORY,
+    TAG_REPOSITORY,
+    GAME_OBJECT_TAG_REPOSITORY,
+    RELATION_REPOSITORY,
+    REFERENCE_REPOSITORY,
+    SEARCH_INDEX_REPOSITORY,
     UNIT_OF_WORK,
   ],
 })
