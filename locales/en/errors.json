@@ -24,5 +24,7 @@
   "invalidFileName": "Invalid file name",
   "pathTraversalAttempt": "Path traversal attempt detected",
   "thumbnailGenerationFailed": "Thumbnail generation failed",
-  "thumbnailNotAvailable": "Thumbnail is not available for this asset"
+  "thumbnailNotAvailable": "Thumbnail is not available for this asset",
+  "storageError": "Storage operation failed",
+  "fileNotFound": "File not found in storage"
 }

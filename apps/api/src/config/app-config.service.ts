@@ -57,6 +57,32 @@ export class AppConfigService {
     );
   }
 
+  get s3Bucket(): string | undefined {
+    return this.configService.get('S3_BUCKET') ?? undefined;
+  }
+
+  get s3Region(): string | undefined {
+    return this.configService.get('S3_REGION') ?? undefined;
+  }
+
+  get s3Endpoint(): string | undefined {
+    return this.configService.get('S3_ENDPOINT') ?? undefined;
+  }
+
+  get s3ForcePathStyle(): boolean {
+    return (
+      (this.configService.get('S3_FORCE_PATH_STYLE') ?? 'false') === 'true'
+    );
+  }
+
+  get s3AccessKeyId(): string | undefined {
+    return this.configService.get('S3_ACCESS_KEY_ID') ?? undefined;
+  }
+
+  get s3SecretAccessKey(): string | undefined {
+    return this.configService.get('S3_SECRET_ACCESS_KEY') ?? undefined;
+  }
+
   get localesRoot(): string {
     return this.resolvePath(
       this.configService.get('LOCALES_ROOT') ?? '../../locales',

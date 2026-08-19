@@ -12,6 +12,7 @@
   "license": "ISC",
   "private": "true",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1112.0",
     "@taleorience/application": "workspace:*",
     "@taleorience/domain": "workspace:*",
     "better-sqlite3": "^13.0.3",

@@ -24,5 +24,7 @@
   "invalidFileName": "Некорректное имя файла",
   "pathTraversalAttempt": "Обнаружена попытка выхода за пределы каталога",
   "thumbnailGenerationFailed": "Не удалось сгенерировать превью",
-  "thumbnailNotAvailable": "Превью недоступно для этого ассета"
+  "thumbnailNotAvailable": "Превью недоступно для этого ассета",
+  "storageError": "Ошибка операции хранилища",
+  "fileNotFound": "Файл не найден в хранилище"
 }

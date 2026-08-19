@@ -6,4 +6,5 @@ export * from './persistence/mappers';
 export * from './persistence/repositories';
 export * from './persistence/repositories-pg';
 export * from './storage/local-file.storage';
+export * from './storage/s3-file.storage';
 export * from './storage/thumbnail.generator';

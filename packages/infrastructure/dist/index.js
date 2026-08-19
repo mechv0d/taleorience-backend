@@ -45,5 +45,6 @@ __exportStar(require("./persistence/mappers"), exports);
 __exportStar(require("./persistence/repositories"), exports);
 __exportStar(require("./persistence/repositories-pg"), exports);
 __exportStar(require("./storage/local-file.storage"), exports);
+__exportStar(require("./storage/s3-file.storage"), exports);
 __exportStar(require("./storage/thumbnail.generator"), exports);
 //# sourceMappingURL=index.js.map

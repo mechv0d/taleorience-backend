@@ -19,6 +19,7 @@ import {
 } from '@taleorience/application';
 import {
   LocalFileStorage,
+  S3FileStorage,
   SharpThumbnailGenerator,
 } from '@taleorience/infrastructure';
 import {
@@ -35,8 +36,20 @@ import { AssetsController, AssetFoldersController } from './assets.controller';
   providers: [
     {
       provide: FILE_STORAGE,
-      useFactory: (config: AppConfigService) =>
-        new LocalFileStorage(config.storageRoot),
+      useFactory: (config: AppConfigService) => {
+        if (config.storageDriver === 's3') {
+          return new S3FileStorage({
+            bucket: config.s3Bucket ?? '',
+            region: config.s3Region,
+            endpoint: config.s3Endpoint,
+            accessKeyId: config.s3AccessKeyId,
+            secretAccessKey: config.s3SecretAccessKey,
+            forcePathStyle: config.s3ForcePathStyle,
+          });
+        }
+
+        return new LocalFileStorage(config.storageRoot);
+      },
       inject: [AppConfigService],
     },
     {
