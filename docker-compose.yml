@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+    image: ghcr.io/mechv0d/taleorience-backend:${TAG:-dev}
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      APP_MODE: local
+      AUTH_MODE: none
+      DATABASE_URL: sqlite:///app/apps/api/data/taleorience.db
+      STORAGE_DRIVER: local
+      STORAGE_ROOT: /app/apps/api/storage
+      LOCALES_ROOT: /app/locales
+    volumes:
+      - api_data:/app/apps/api/data
+      - api_storage:/app/apps/api/storage
+    restart: unless-stopped
+
+volumes:
+  api_data:
+  api_storage:
