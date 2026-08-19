@@ -9,6 +9,7 @@ import {
   GetBlockUseCase,
   DeleteBlockUseCase,
   MoveBlockUseCase,
+  DuplicateBlockUseCase,
   GameObjectRepository,
   PageRepository,
   BlockRepository,
@@ -116,6 +117,24 @@ import {
       useFactory: (repo: BlockRepository, uow: UnitOfWork) =>
         new MoveBlockUseCase(repo, uow),
       inject: [BLOCK_REPOSITORY, UNIT_OF_WORK],
+    },
+    {
+      provide: DuplicateBlockUseCase,
+      useFactory: (
+        repo: BlockRepository,
+        refRepo: ReferenceRepository,
+        goRepo: GameObjectRepository,
+        searchIndexRepo: SearchIndexRepository,
+        uow: UnitOfWork,
+      ) =>
+        new DuplicateBlockUseCase(repo, refRepo, goRepo, searchIndexRepo, uow),
+      inject: [
+        BLOCK_REPOSITORY,
+        REFERENCE_REPOSITORY,
+        GAME_OBJECT_REPOSITORY,
+        SEARCH_INDEX_REPOSITORY,
+        UNIT_OF_WORK,
+      ],
     },
   ],
 })

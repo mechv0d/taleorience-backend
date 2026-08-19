@@ -322,6 +322,90 @@ export class MoveBlockUseCase {
   }
 }
 
+export class DuplicateBlockUseCase {
+  constructor(
+    private readonly repo: BlockRepository,
+    private readonly referenceRepo: ReferenceRepository,
+    private readonly goRepo: GameObjectRepository,
+    private readonly searchIndexRepo: SearchIndexRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+  async execute(id: Guid, toIndex?: number): Promise<Block> {
+    return this.uow.execute(async (trx) => {
+      const source = await this.repo.findById(id, trx);
+      if (!source) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+
+      const blocks = (await this.repo.findByPageId(source.pageId, trx))
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      const now = new Date();
+      const copy: Block = {
+        id: generateGuid(),
+        projectId: source.projectId,
+        pageId: source.pageId,
+        type: source.type,
+        data: JSON.parse(JSON.stringify(source.data)),
+        sortOrder: toIndex ?? blocks.length,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await this.repo.save(copy, trx);
+
+      const target = Math.max(0, Math.min(copy.sortOrder, blocks.length));
+      const newOrder = [...blocks];
+      newOrder.splice(target, 0, copy);
+      for (let i = 0; i < newOrder.length; i++) {
+        if (newOrder[i].sortOrder === i) continue;
+        newOrder[i].sortOrder = i;
+        newOrder[i].updatedAt = now;
+        await this.repo.save(newOrder[i], trx);
+      }
+
+      await this.syncReferences(copy, trx);
+      await this.reindexBlock(copy, trx);
+
+      return copy;
+    });
+  }
+
+  private async syncReferences(block: Block, trx: unknown): Promise<void> {
+    if (block.type !== BlockType.TEXT) {
+      return;
+    }
+    const content = typeof block.data['content'] === 'string' ? block.data['content'] : '';
+    const parsed = parseMarkdownReferences(content);
+
+    for (const ref of parsed) {
+      const target = await this.goRepo.findByName(block.projectId, ref.name, trx);
+      if (!target) {
+        continue;
+      }
+      await this.referenceRepo.save({
+        id: generateGuid(),
+        projectId: block.projectId,
+        sourceBlockId: block.id,
+        targetGameObjectId: target.id,
+        label: ref.label,
+        createdAt: new Date(),
+      }, trx);
+    }
+  }
+
+  private async reindexBlock(block: Block, trx: unknown): Promise<void> {
+    const text = blockToText(block);
+    if (!text) {
+      return;
+    }
+    await this.searchIndexRepo.index([{
+      id: generateGuid(),
+      projectId: block.projectId,
+      entityType: 'block',
+      entityId: block.id,
+      text,
+    }], trx);
+  }
+}
+
 // --- ASSETS ---
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',

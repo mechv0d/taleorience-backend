@@ -13,6 +13,7 @@ import type {
   CreateBlockDtoType,
   UpdateBlockDtoType,
   MoveBlockDtoType,
+  DuplicateBlockDtoType,
 } from '@taleorience/contracts';
 import { BlockType } from '@taleorience/domain';
 import {
@@ -24,6 +25,7 @@ import {
   GetBlockUseCase,
   DeleteBlockUseCase,
   MoveBlockUseCase,
+  DuplicateBlockUseCase,
 } from '@taleorience/application';
 import type { PageRepository, BlockRepository } from '@taleorience/application';
 import { PAGE_REPOSITORY, BLOCK_REPOSITORY } from '../tokens';
@@ -40,6 +42,7 @@ export class WorldController {
     private readonly getBlockUseCase: GetBlockUseCase,
     private readonly deleteBlockUseCase: DeleteBlockUseCase,
     private readonly moveBlockUseCase: MoveBlockUseCase,
+    private readonly duplicateBlockUseCase: DuplicateBlockUseCase,
 
     // 2. Используем @Inject с токенами для интерфейсов
     @Inject(PAGE_REPOSITORY) private readonly pageRepo: PageRepository,
@@ -107,6 +110,14 @@ export class WorldController {
     @Body() dto: MoveBlockDtoType,
   ) {
     return this.moveBlockUseCase.execute(blockId, dto.toIndex);
+  }
+
+  @Post('blocks/:blockId/duplicate')
+  duplicateBlock(
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @Body() dto: DuplicateBlockDtoType,
+  ) {
+    return this.duplicateBlockUseCase.execute(blockId, dto.toIndex);
   }
 
   @Post('game-objects/:goId/delete')

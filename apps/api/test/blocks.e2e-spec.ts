@@ -189,4 +189,26 @@ describe('Blocks (MVP types + CRUD e2e)', () => {
     const body = JSON.parse(res.payload) as ProblemJsonResponse;
     expect(body.code).toBe('BLOCK_NOT_FOUND');
   });
+
+  it('12. Duplicate block appends a copy', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/blocks/${textBlockId}/duplicate`,
+      payload: {},
+    });
+    expect(res.statusCode).toBe(201);
+    const copy = JSON.parse(res.payload) as BlockResponse;
+    expect(copy.id).not.toBe(textBlockId);
+    expect(copy.type).toBe('text');
+    expect(copy.data.content).toBe('Updated [[Heroes]]');
+
+    const listRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/projects/${projectId}/pages/${pageId}/blocks`,
+    });
+    expect(listRes.statusCode).toBe(200);
+    const blocks = JSON.parse(listRes.payload) as BlockResponse[];
+    expect(blocks).toHaveLength(8);
+    expect(blocks[blocks.length - 1].id).toBe(copy.id);
+  });
 });
