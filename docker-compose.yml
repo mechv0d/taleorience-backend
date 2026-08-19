@@ -10,13 +10,13 @@ services:
       PORT: 4000
       APP_MODE: local
       AUTH_MODE: none
-      DATABASE_URL: sqlite:///app/apps/api/data/taleorience.db
+      DATABASE_URL: sqlite://./data/taleorience.db
       STORAGE_DRIVER: local
-      STORAGE_ROOT: /app/apps/api/storage
+      STORAGE_ROOT: ./storage
       LOCALES_ROOT: /app/locales
     volumes:
-      - api_data:/app/apps/api/data
-      - api_storage:/app/apps/api/storage
+      - api_data:/app/data
+      - api_storage:/app/storage
     restart: unless-stopped
 
 volumes:

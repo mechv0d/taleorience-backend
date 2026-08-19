@@ -68,9 +68,6 @@ jobs:
         run: |
           set -euo pipefail
           docker run -d --name taleorience-api \
-            -e PORT=4000 \
-            -e DATABASE_URL=sqlite:///tmp/taleorience.db \
-            -e STORAGE_ROOT=/tmp/storage \
             -p 4000:4000 \
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           trap 'docker rm -f taleorience-api >/dev/null 2>&1 || true' EXIT
