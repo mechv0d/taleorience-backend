@@ -2,9 +2,11 @@
   "name": "@taleorience/infrastructure",
   "version": "0.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test": "vitest run",
+    "build": "tsc -b",
     "typecheck": "tsc -b"
   },
   "keywords": [],

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@taleorience/domain": ["../../packages/domain/src"],
+      "@taleorience/contracts": ["../../packages/contracts/src"],
+      "@taleorience/application": ["../../packages/application/src"],
+      "@taleorience/infrastructure": ["../../packages/infrastructure/src"]
+    }
+  }
+}
