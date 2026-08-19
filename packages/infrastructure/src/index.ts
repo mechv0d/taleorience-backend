@@ -1,4 +1,9 @@
 export * from './persistence/schema';
+export * as pgSchema from './persistence/schema-pg';
+export * from './persistence/ddl';
+export * from './persistence/connections';
+export * from './persistence/mappers';
 export * from './persistence/repositories';
+export * from './persistence/repositories-pg';
 export * from './storage/local-file.storage';
 export * from './storage/thumbnail.generator';
