@@ -5,6 +5,7 @@ import {
   TagRepository, GameObjectTagRepository, RelationRepository, ReferenceRepository, SearchIndexRepository
 } from './ports';
 import { parseMarkdownReferences } from './markdown-references';
+import { validateBlockData, normalizeBlockData, blockToText } from './block-data';
 
 // --- PROJECTS ---
 export class CreateProjectUseCase {
@@ -114,12 +115,17 @@ export class CreateBlockUseCase {
   
   async execute(projectId: Guid, pageId: Guid, type: BlockType, data: Record<string, unknown>): Promise<Block> {
     this.validateBlockData(type, data);
+    const normalized = normalizeBlockData(type, data);
     
     return this.uow.execute(async (trx) => {
       const now = new Date();
+      const existing = await this.repo.findByPageId(pageId, trx);
+      const nextSortOrder = existing.length > 0
+        ? Math.max(...existing.map((b) => b.sortOrder)) + 1
+        : 0;
       const block: Block = {
-        id: generateGuid(), projectId, pageId, type, data,
-        sortOrder: 0, createdAt: now, updatedAt: now,
+        id: generateGuid(), projectId, pageId, type, data: normalized,
+        sortOrder: nextSortOrder, createdAt: now, updatedAt: now,
       };
       await this.repo.save(block, trx);
 
@@ -171,16 +177,11 @@ export class CreateBlockUseCase {
   }
 
   private blockToText(block: Block): string {
-    if (block.type === BlockType.TEXT) {
-      return typeof block.data['content'] === 'string' ? block.data['content'] : '';
-    }
-    return JSON.stringify(block.data);
+    return blockToText(block);
   }
 
   private validateBlockData(type: BlockType, data: Record<string, unknown>): void {
-    if (type === BlockType.TEXT && typeof data.content !== 'string') {
-      throw new DomainError('INVALID_BLOCK_DATA', 'errors.invalidBlockData', { type });
-    }
+    validateBlockData(type, data);
   }
 }
 
@@ -198,7 +199,7 @@ export class UpdateBlockUseCase {
       if (!block) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
       
       this.validateBlockData(block.type, data);
-      block.data = data;
+      block.data = normalizeBlockData(block.type, data);
       block.updatedAt = new Date();
       await this.repo.save(block, trx);
 
@@ -209,9 +210,7 @@ export class UpdateBlockUseCase {
     });
   }
   private validateBlockData(type: BlockType, data: Record<string, unknown>): void {
-    if (type === BlockType.TEXT && typeof data.content !== 'string') {
-      throw new DomainError('INVALID_BLOCK_DATA', 'errors.invalidBlockData', { type });
-    }
+    validateBlockData(type, data);
   }
   private async syncReferences(block: Block, trx: unknown): Promise<void> {
     if (block.type !== BlockType.TEXT) {
@@ -252,10 +251,158 @@ export class UpdateBlockUseCase {
     }], trx);
   }
   private blockToText(block: Block): string {
-    if (block.type === BlockType.TEXT) {
-      return typeof block.data['content'] === 'string' ? block.data['content'] : '';
+    return blockToText(block);
+  }
+}
+
+export class ListPageBlocksUseCase {
+  constructor(private readonly repo: BlockRepository) {}
+  async execute(pageId: Guid): Promise<Block[]> {
+    const blocks = await this.repo.findByPageId(pageId);
+    return blocks.sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+}
+
+export class GetBlockUseCase {
+  constructor(private readonly repo: BlockRepository) {}
+  async execute(id: Guid): Promise<Block> {
+    const block = await this.repo.findById(id);
+    if (!block) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+    return block;
+  }
+}
+
+export class DeleteBlockUseCase {
+  constructor(
+    private readonly repo: BlockRepository,
+    private readonly referenceRepo: ReferenceRepository,
+    private readonly searchIndexRepo: SearchIndexRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+  async execute(id: Guid): Promise<void> {
+    return this.uow.execute(async (trx) => {
+      const block = await this.repo.findById(id, trx);
+      if (!block) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+
+      await this.referenceRepo.deleteBySourceBlockId(id, trx);
+      await this.searchIndexRepo.deleteByEntityId(id, trx);
+      await this.repo.delete(id, trx);
+    });
+  }
+}
+
+export class MoveBlockUseCase {
+  constructor(
+    private readonly repo: BlockRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+  async execute(id: Guid, toIndex: number): Promise<Block[]> {
+    return this.uow.execute(async (trx) => {
+      const block = await this.repo.findById(id, trx);
+      if (!block) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+
+      const blocks = (await this.repo.findByPageId(block.pageId, trx))
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      const fromIndex = blocks.findIndex((b) => b.id === id);
+      if (fromIndex === -1) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+
+      const target = Math.max(0, Math.min(toIndex, blocks.length - 1));
+      const [moved] = blocks.splice(fromIndex, 1);
+      blocks.splice(target, 0, moved);
+
+      const now = new Date();
+      for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i].sortOrder === i) continue;
+        blocks[i].sortOrder = i;
+        blocks[i].updatedAt = now;
+        await this.repo.save(blocks[i], trx);
+      }
+      return blocks;
+    });
+  }
+}
+
+export class DuplicateBlockUseCase {
+  constructor(
+    private readonly repo: BlockRepository,
+    private readonly referenceRepo: ReferenceRepository,
+    private readonly goRepo: GameObjectRepository,
+    private readonly searchIndexRepo: SearchIndexRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
+  async execute(id: Guid, toIndex?: number): Promise<Block> {
+    return this.uow.execute(async (trx) => {
+      const source = await this.repo.findById(id, trx);
+      if (!source) throw new DomainError('BLOCK_NOT_FOUND', 'errors.blockNotFound', { id }, 404);
+
+      const blocks = (await this.repo.findByPageId(source.pageId, trx))
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      const now = new Date();
+      const copy: Block = {
+        id: generateGuid(),
+        projectId: source.projectId,
+        pageId: source.pageId,
+        type: source.type,
+        data: JSON.parse(JSON.stringify(source.data)),
+        sortOrder: toIndex ?? blocks.length,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await this.repo.save(copy, trx);
+
+      const target = Math.max(0, Math.min(copy.sortOrder, blocks.length));
+      const newOrder = [...blocks];
+      newOrder.splice(target, 0, copy);
+      for (let i = 0; i < newOrder.length; i++) {
+        if (newOrder[i].sortOrder === i) continue;
+        newOrder[i].sortOrder = i;
+        newOrder[i].updatedAt = now;
+        await this.repo.save(newOrder[i], trx);
+      }
+
+      await this.syncReferences(copy, trx);
+      await this.reindexBlock(copy, trx);
+
+      return copy;
+    });
+  }
+
+  private async syncReferences(block: Block, trx: unknown): Promise<void> {
+    if (block.type !== BlockType.TEXT) {
+      return;
     }
-    return JSON.stringify(block.data);
+    const content = typeof block.data['content'] === 'string' ? block.data['content'] : '';
+    const parsed = parseMarkdownReferences(content);
+
+    for (const ref of parsed) {
+      const target = await this.goRepo.findByName(block.projectId, ref.name, trx);
+      if (!target) {
+        continue;
+      }
+      await this.referenceRepo.save({
+        id: generateGuid(),
+        projectId: block.projectId,
+        sourceBlockId: block.id,
+        targetGameObjectId: target.id,
+        label: ref.label,
+        createdAt: new Date(),
+      }, trx);
+    }
+  }
+
+  private async reindexBlock(block: Block, trx: unknown): Promise<void> {
+    const text = blockToText(block);
+    if (!text) {
+      return;
+    }
+    await this.searchIndexRepo.index([{
+      id: generateGuid(),
+      projectId: block.projectId,
+      entityType: 'block',
+      entityId: block.id,
+      text,
+    }], trx);
   }
 }
 

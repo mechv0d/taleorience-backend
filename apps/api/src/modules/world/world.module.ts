@@ -5,6 +5,11 @@ import {
   CreateBlockUseCase,
   UpdateBlockUseCase,
   DeleteGameObjectUseCase,
+  ListPageBlocksUseCase,
+  GetBlockUseCase,
+  DeleteBlockUseCase,
+  MoveBlockUseCase,
+  DuplicateBlockUseCase,
   GameObjectRepository,
   PageRepository,
   BlockRepository,
@@ -74,6 +79,55 @@ import {
         searchIndexRepo: SearchIndexRepository,
         uow: UnitOfWork,
       ) => new UpdateBlockUseCase(repo, refRepo, goRepo, searchIndexRepo, uow),
+      inject: [
+        BLOCK_REPOSITORY,
+        REFERENCE_REPOSITORY,
+        GAME_OBJECT_REPOSITORY,
+        SEARCH_INDEX_REPOSITORY,
+        UNIT_OF_WORK,
+      ],
+    },
+    {
+      provide: ListPageBlocksUseCase,
+      useFactory: (repo: BlockRepository) => new ListPageBlocksUseCase(repo),
+      inject: [BLOCK_REPOSITORY],
+    },
+    {
+      provide: GetBlockUseCase,
+      useFactory: (repo: BlockRepository) => new GetBlockUseCase(repo),
+      inject: [BLOCK_REPOSITORY],
+    },
+    {
+      provide: DeleteBlockUseCase,
+      useFactory: (
+        repo: BlockRepository,
+        refRepo: ReferenceRepository,
+        searchIndexRepo: SearchIndexRepository,
+        uow: UnitOfWork,
+      ) => new DeleteBlockUseCase(repo, refRepo, searchIndexRepo, uow),
+      inject: [
+        BLOCK_REPOSITORY,
+        REFERENCE_REPOSITORY,
+        SEARCH_INDEX_REPOSITORY,
+        UNIT_OF_WORK,
+      ],
+    },
+    {
+      provide: MoveBlockUseCase,
+      useFactory: (repo: BlockRepository, uow: UnitOfWork) =>
+        new MoveBlockUseCase(repo, uow),
+      inject: [BLOCK_REPOSITORY, UNIT_OF_WORK],
+    },
+    {
+      provide: DuplicateBlockUseCase,
+      useFactory: (
+        repo: BlockRepository,
+        refRepo: ReferenceRepository,
+        goRepo: GameObjectRepository,
+        searchIndexRepo: SearchIndexRepository,
+        uow: UnitOfWork,
+      ) =>
+        new DuplicateBlockUseCase(repo, refRepo, goRepo, searchIndexRepo, uow),
       inject: [
         BLOCK_REPOSITORY,
         REFERENCE_REPOSITORY,

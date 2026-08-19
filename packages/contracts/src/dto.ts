@@ -20,6 +20,14 @@ export const UpdateBlockDto = z.object({
   data: z.record(z.string(), z.unknown()),
 });
 
+export const MoveBlockDto = z.object({
+  toIndex: z.coerce.number().int().min(0),
+});
+
+export const DuplicateBlockDto = z.object({
+  toIndex: z.coerce.number().int().min(0).optional(),
+});
+
 export const CreateAssetFolderDto = z.object({
   name: z.string().min(1),
   parentId: z.string().uuid().nullable().optional(),
@@ -58,6 +66,8 @@ export type CreateProjectDtoType = z.infer<typeof CreateProjectDto>;
 export type CreateGameObjectDtoType = z.infer<typeof CreateGameObjectDto>;
 export type CreateBlockDtoType = z.infer<typeof CreateBlockDto>;
 export type UpdateBlockDtoType = z.infer<typeof UpdateBlockDto>;
+export type MoveBlockDtoType = z.infer<typeof MoveBlockDto>;
+export type DuplicateBlockDtoType = z.infer<typeof DuplicateBlockDto>;
 export type CreateAssetFolderDtoType = z.infer<typeof CreateAssetFolderDto>;
 export type UpdateAssetDtoType = z.infer<typeof UpdateAssetDto>;
 export type CreateTagDtoType = z.infer<typeof CreateTagDto>;
