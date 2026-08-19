@@ -4,3 +4,4 @@ export * from './project/project.entity';
 export * from './world/entities';
 export * from './assets/asset.entity';
 export * from './assets/asset-folder.entity';
+//# sourceMappingURL=index.d.ts.map

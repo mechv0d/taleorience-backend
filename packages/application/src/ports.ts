@@ -1,4 +1,4 @@
-import { Project, GameObject, Page, Block, Guid } from '@taleorience/domain';
+import { Project, GameObject, Page, Block, Guid, Asset, AssetFolder } from '@taleorience/domain';
 
 export type TransactionContext = any; // Специфичный для инфраструктуры тип транзакции
 
@@ -32,4 +32,40 @@ export interface BlockRepository {
   findByPageId(pageId: Guid, trx?: TransactionContext): Promise<Block[]>;
   save(entity: Block, trx?: TransactionContext): Promise<void>;
   delete(id: Guid, trx?: TransactionContext): Promise<void>;
+}
+
+export interface AssetRepository {
+  findById(id: Guid, trx?: TransactionContext): Promise<Asset | null>;
+  findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<Asset[]>;
+  findByFolderId(folderId: Guid, trx?: TransactionContext): Promise<Asset[]>;
+  save(asset: Asset, trx?: TransactionContext): Promise<void>;
+  delete(id: Guid, trx?: TransactionContext): Promise<void>;
+  incrementUsageCount(id: Guid, trx?: TransactionContext): Promise<void>;
+  decrementUsageCount(id: Guid, trx?: TransactionContext): Promise<void>;
+}
+
+export interface AssetFolderRepository {
+  findById(id: Guid, trx?: TransactionContext): Promise<AssetFolder | null>;
+  findByProjectId(projectId: Guid, trx?: TransactionContext): Promise<AssetFolder[]>;
+  findByParentId(parentId: Guid | null, projectId: Guid, trx?: TransactionContext): Promise<AssetFolder[]>;
+  save(folder: AssetFolder, trx?: TransactionContext): Promise<void>;
+  delete(id: Guid, trx?: TransactionContext): Promise<void>;
+}
+
+export interface UploadedFile {
+  buffer: Buffer;
+  originalName: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface FileStorage {
+  save(file: UploadedFile, path: string): Promise<string>;
+  get(path: string): Promise<Buffer>;
+  delete(path: string): Promise<void>;
+  exists(path: string): Promise<boolean>;
+}
+
+export interface ThumbnailGenerator {
+  generate(imageBuffer: Buffer, width: number, height: number): Promise<Buffer>;
 }
