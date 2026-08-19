@@ -49,6 +49,13 @@ Returns 201: GameObject entity.
 ```
 Side effect: auto-creates a `Main` page for the GameObject.
 
+### GET /api/v1/projects/:projectId/game-objects
+Returns 200: `GameObject[]` (flat list, sorted by `sortOrder`).
+
+### GET /api/v1/projects/:projectId/game-objects/tree
+Returns 200: `GameObjectTreeNode[]` — hierarchy built from `parentId`, roots
+ordered by `sortOrder`, each node `{ ...GameObject, children: [] }`.
+
 ### GET /api/v1/projects/:projectId/game-objects/:goId/pages
 Returns 200: `Page[]` (each: `{ id, projectId, gameObjectId, title, sortOrder, createdAt, updatedAt }`).
 
