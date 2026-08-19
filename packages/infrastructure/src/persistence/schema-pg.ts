@@ -1,4 +1,4 @@
-import { pgTable, text, integer, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, primaryKey } from 'drizzle-orm/pg-core';
 
 export const projects = pgTable('projects', {
   id: text('id').primaryKey(),
@@ -66,4 +66,46 @@ export const assetFolders = pgTable('asset_folders', {
   name: text('name').notNull(),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
+});
+
+export const tags = pgTable('tags', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull(),
+  name: text('name').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const gameObjectTags = pgTable('game_object_tags', {
+  gameObjectId: text('game_object_id').notNull(),
+  tagId: text('tag_id').notNull(),
+  createdAt: text('created_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.gameObjectId, table.tagId] }),
+]);
+
+export const relations = pgTable('relations', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull(),
+  sourceGameObjectId: text('source_game_object_id').notNull(),
+  targetGameObjectId: text('target_game_object_id').notNull(),
+  type: text('type').notNull(),
+  createdAt: text('created_at').notNull(),
+});
+
+export const markdownReferences = pgTable('markdown_references', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull(),
+  sourceBlockId: text('source_block_id').notNull(),
+  targetGameObjectId: text('target_game_object_id').notNull(),
+  label: text('label'),
+  createdAt: text('created_at').notNull(),
+});
+
+export const searchIndex = pgTable('search_index', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id').notNull(),
+  text: text('text').notNull(),
 });

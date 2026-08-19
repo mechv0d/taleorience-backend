@@ -8,12 +8,16 @@ import {
   GameObjectRepository,
   PageRepository,
   BlockRepository,
+  ReferenceRepository,
+  SearchIndexRepository,
   UnitOfWork,
 } from '@taleorience/application';
 import {
   GAME_OBJECT_REPOSITORY,
   PAGE_REPOSITORY,
   BLOCK_REPOSITORY,
+  REFERENCE_REPOSITORY,
+  SEARCH_INDEX_REPOSITORY,
   UNIT_OF_WORK,
 } from '../tokens';
 
@@ -46,15 +50,37 @@ import {
     },
     {
       provide: CreateBlockUseCase,
-      useFactory: (repo: BlockRepository, uow: UnitOfWork) =>
-        new CreateBlockUseCase(repo, uow),
-      inject: [BLOCK_REPOSITORY, UNIT_OF_WORK],
+      useFactory: (
+        repo: BlockRepository,
+        refRepo: ReferenceRepository,
+        goRepo: GameObjectRepository,
+        searchIndexRepo: SearchIndexRepository,
+        uow: UnitOfWork,
+      ) => new CreateBlockUseCase(repo, refRepo, goRepo, searchIndexRepo, uow),
+      inject: [
+        BLOCK_REPOSITORY,
+        REFERENCE_REPOSITORY,
+        GAME_OBJECT_REPOSITORY,
+        SEARCH_INDEX_REPOSITORY,
+        UNIT_OF_WORK,
+      ],
     },
     {
       provide: UpdateBlockUseCase,
-      useFactory: (repo: BlockRepository, uow: UnitOfWork) =>
-        new UpdateBlockUseCase(repo, uow),
-      inject: [BLOCK_REPOSITORY, UNIT_OF_WORK],
+      useFactory: (
+        repo: BlockRepository,
+        refRepo: ReferenceRepository,
+        goRepo: GameObjectRepository,
+        searchIndexRepo: SearchIndexRepository,
+        uow: UnitOfWork,
+      ) => new UpdateBlockUseCase(repo, refRepo, goRepo, searchIndexRepo, uow),
+      inject: [
+        BLOCK_REPOSITORY,
+        REFERENCE_REPOSITORY,
+        GAME_OBJECT_REPOSITORY,
+        SEARCH_INDEX_REPOSITORY,
+        UNIT_OF_WORK,
+      ],
     },
   ],
 })

@@ -26,5 +26,13 @@
   "thumbnailGenerationFailed": "Thumbnail generation failed",
   "thumbnailNotAvailable": "Thumbnail is not available for this asset",
   "storageError": "Storage operation failed",
-  "fileNotFound": "File not found in storage"
+  "fileNotFound": "File not found in storage",
+  "invalidTagName": "Invalid tag name",
+  "tagAlreadyExists": "Tag already exists",
+  "tagNotFound": "Tag not found",
+  "tagNotInProject": "Tag does not belong to this project",
+  "invalidRelationType": "Invalid relation type",
+  "relationNotFound": "Relation not found",
+  "relationNotInProject": "Relation does not belong to this project",
+  "gameObjectNotInProject": "Game object does not belong to this project"
 }

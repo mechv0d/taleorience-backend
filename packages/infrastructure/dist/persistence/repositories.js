@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SqlAssetFolderRepository = exports.SqlAssetRepository = exports.SqlBlockRepository = exports.SqlPageRepository = exports.SqlGameObjectRepository = exports.SqlProjectRepository = exports.DrizzleUnitOfWork = void 0;
+exports.SqlSearchIndexRepository = exports.SqlReferenceRepository = exports.SqlRelationRepository = exports.SqlGameObjectTagRepository = exports.SqlTagRepository = exports.SqlAssetFolderRepository = exports.SqlAssetRepository = exports.SqlBlockRepository = exports.SqlPageRepository = exports.SqlGameObjectRepository = exports.SqlProjectRepository = exports.DrizzleUnitOfWork = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const schema = __importStar(require("./schema"));
 const mappers_1 = require("./mappers");
@@ -92,6 +92,18 @@ class SqlGameObjectRepository {
     }
     async findByProjectId(projectId) {
         const res = await this.db.select().from(schema.gameObjects).where((0, drizzle_orm_1.eq)(schema.gameObjects.projectId, projectId)).all();
+        return res.map(mappers_1.mapGameObject);
+    }
+    async findByName(projectId, name, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.gameObjects).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.gameObjects.projectId, projectId), (0, drizzle_orm_1.eq)(schema.gameObjects.name, name))).get();
+        return res ? (0, mappers_1.mapGameObject)(res) : null;
+    }
+    async searchByName(projectId, query, limit = 20, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.gameObjects)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.gameObjects.projectId, projectId), (0, drizzle_orm_1.like)(schema.gameObjects.name, `%${query}%`)))
+            .limit(limit).all();
         return res.map(mappers_1.mapGameObject);
     }
     async save(entity) {
@@ -279,4 +291,172 @@ class SqlAssetFolderRepository {
     }
 }
 exports.SqlAssetFolderRepository = SqlAssetFolderRepository;
+class SqlTagRepository {
+    db;
+    constructor(db) {
+        this.db = db;
+    }
+    async findById(id, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.tags).where((0, drizzle_orm_1.eq)(schema.tags.id, id)).get();
+        return res ? (0, mappers_1.mapTag)(res) : null;
+    }
+    async findByProjectId(projectId, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.tags).where((0, drizzle_orm_1.eq)(schema.tags.projectId, projectId)).all();
+        return res.map(mappers_1.mapTag);
+    }
+    async findByNames(projectId, names, trx) {
+        if (names.length === 0)
+            return [];
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.tags)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.tags.projectId, projectId), ...names.map(n => (0, drizzle_orm_1.eq)(schema.tags.name, n))))
+            .all();
+        return res.map(mappers_1.mapTag);
+    }
+    async save(tag, trx) {
+        const db = trx ?? this.db;
+        await db.insert(schema.tags).values({
+            ...tag,
+            createdAt: tag.createdAt.toISOString(),
+            updatedAt: tag.updatedAt.toISOString(),
+        }).onConflictDoUpdate({
+            target: schema.tags.id,
+            set: { name: tag.name, updatedAt: tag.updatedAt.toISOString() }
+        });
+    }
+    async delete(id, trx) {
+        const db = trx ?? this.db;
+        await db.delete(schema.tags).where((0, drizzle_orm_1.eq)(schema.tags.id, id));
+    }
+}
+exports.SqlTagRepository = SqlTagRepository;
+class SqlGameObjectTagRepository {
+    db;
+    constructor(db) {
+        this.db = db;
+    }
+    async findByGameObjectId(gameObjectId, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.gameObjectTags).where((0, drizzle_orm_1.eq)(schema.gameObjectTags.gameObjectId, gameObjectId)).all();
+        return res.map(mappers_1.mapGameObjectTag);
+    }
+    async findByTagId(tagId, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.gameObjectTags).where((0, drizzle_orm_1.eq)(schema.gameObjectTags.tagId, tagId)).all();
+        return res.map(mappers_1.mapGameObjectTag);
+    }
+    async add(gameObjectId, tagId, trx) {
+        const db = trx ?? this.db;
+        await db.insert(schema.gameObjectTags).values({
+            gameObjectId, tagId, createdAt: new Date().toISOString(),
+        }).onConflictDoNothing();
+    }
+    async remove(gameObjectId, tagId, trx) {
+        const db = trx ?? this.db;
+        await db.delete(schema.gameObjectTags).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.gameObjectTags.gameObjectId, gameObjectId), (0, drizzle_orm_1.eq)(schema.gameObjectTags.tagId, tagId)));
+    }
+}
+exports.SqlGameObjectTagRepository = SqlGameObjectTagRepository;
+class SqlRelationRepository {
+    db;
+    constructor(db) {
+        this.db = db;
+    }
+    async findById(id, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.relations).where((0, drizzle_orm_1.eq)(schema.relations.id, id)).get();
+        return res ? (0, mappers_1.mapRelation)(res) : null;
+    }
+    async findBySourceGameObjectId(gameObjectId, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.relations).where((0, drizzle_orm_1.eq)(schema.relations.sourceGameObjectId, gameObjectId)).all();
+        return res.map(mappers_1.mapRelation);
+    }
+    async findByTargetGameObjectId(gameObjectId, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.relations).where((0, drizzle_orm_1.eq)(schema.relations.targetGameObjectId, gameObjectId)).all();
+        return res.map(mappers_1.mapRelation);
+    }
+    async findByProjectId(projectId, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.relations).where((0, drizzle_orm_1.eq)(schema.relations.projectId, projectId)).all();
+        return res.map(mappers_1.mapRelation);
+    }
+    async save(relation, trx) {
+        const db = trx ?? this.db;
+        await db.insert(schema.relations).values({
+            ...relation,
+            createdAt: relation.createdAt.toISOString(),
+        }).onConflictDoUpdate({
+            target: schema.relations.id,
+            set: { sourceGameObjectId: relation.sourceGameObjectId, targetGameObjectId: relation.targetGameObjectId, type: relation.type }
+        });
+    }
+    async delete(id, trx) {
+        const db = trx ?? this.db;
+        await db.delete(schema.relations).where((0, drizzle_orm_1.eq)(schema.relations.id, id));
+    }
+}
+exports.SqlRelationRepository = SqlRelationRepository;
+class SqlReferenceRepository {
+    db;
+    constructor(db) {
+        this.db = db;
+    }
+    async findBySourceBlockId(blockId, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.markdownReferences).where((0, drizzle_orm_1.eq)(schema.markdownReferences.sourceBlockId, blockId)).all();
+        return res.map(mappers_1.mapReference);
+    }
+    async findByTargetGameObjectId(gameObjectId, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.markdownReferences).where((0, drizzle_orm_1.eq)(schema.markdownReferences.targetGameObjectId, gameObjectId)).all();
+        return res.map(mappers_1.mapReference);
+    }
+    async deleteBySourceBlockId(blockId, trx) {
+        const db = trx ?? this.db;
+        await db.delete(schema.markdownReferences).where((0, drizzle_orm_1.eq)(schema.markdownReferences.sourceBlockId, blockId));
+    }
+    async save(reference, trx) {
+        const db = trx ?? this.db;
+        await db.insert(schema.markdownReferences).values({
+            ...reference,
+            createdAt: reference.createdAt.toISOString(),
+        }).onConflictDoNothing();
+    }
+}
+exports.SqlReferenceRepository = SqlReferenceRepository;
+class SqlSearchIndexRepository {
+    db;
+    constructor(db) {
+        this.db = db;
+    }
+    async index(entries, trx) {
+        const db = trx ?? this.db;
+        for (const entry of entries) {
+            await db.insert(schema.searchIndex).values({
+                id: entry.id, projectId: entry.projectId, entityType: entry.entityType,
+                entityId: entry.entityId, text: entry.text,
+            }).onConflictDoUpdate({
+                target: schema.searchIndex.id,
+                set: { text: entry.text }
+            });
+        }
+    }
+    async deleteByEntityId(entityId, trx) {
+        const db = trx ?? this.db;
+        await db.delete(schema.searchIndex).where((0, drizzle_orm_1.eq)(schema.searchIndex.entityId, entityId));
+    }
+    async search(projectId, query, limit = 20, trx) {
+        const db = trx ?? this.db;
+        const res = await db.select().from(schema.searchIndex)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema.searchIndex.projectId, projectId), (0, drizzle_orm_1.like)(schema.searchIndex.text, `%${query}%`)))
+            .orderBy((0, drizzle_orm_1.desc)(schema.searchIndex.text))
+            .limit(limit).all();
+        return res;
+    }
+}
+exports.SqlSearchIndexRepository = SqlSearchIndexRepository;
 //# sourceMappingURL=repositories.js.map

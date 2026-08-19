@@ -26,5 +26,13 @@
   "thumbnailGenerationFailed": "Не удалось сгенерировать превью",
   "thumbnailNotAvailable": "Превью недоступно для этого ассета",
   "storageError": "Ошибка операции хранилища",
-  "fileNotFound": "Файл не найден в хранилище"
+  "fileNotFound": "Файл не найден в хранилище",
+  "invalidTagName": "Некорректное имя тега",
+  "tagAlreadyExists": "Тег уже существует",
+  "tagNotFound": "Тег не найден",
+  "tagNotInProject": "Тег не принадлежит этому проекту",
+  "invalidRelationType": "Некорректный тип связи",
+  "relationNotFound": "Связь не найдена",
+  "relationNotInProject": "Связь не принадлежит этому проекту",
+  "gameObjectNotInProject": "Игровой объект не принадлежит этому проекту"
 }

@@ -18,6 +18,7 @@ __exportStar(require("./shared/guid"), exports);
 __exportStar(require("./shared/domain-error"), exports);
 __exportStar(require("./project/project.entity"), exports);
 __exportStar(require("./world/entities"), exports);
+__exportStar(require("./world/knowledge"), exports);
 __exportStar(require("./assets/asset.entity"), exports);
 __exportStar(require("./assets/asset-folder.entity"), exports);
 //# sourceMappingURL=index.js.map
