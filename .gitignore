@@ -8,6 +8,7 @@ target/
 *.js.map
 *.d.ts
 *.d.ts.map
+*.tsbuildinfo
 
 # Dependencies
 node_modules/
@@ -35,3 +36,4 @@ coverage/
 
 # Runtime file storage
 apps/api/storage/
+apps/api/data/
