@@ -16,12 +16,8 @@ process.env.LOCALES_ROOT = resolve(__dirname, '../../../locales');
 // Сбрасываем кэш модулей, чтобы ConfigModule перечитал env vars
 jest.resetModules();
 
-import { Test } from '@nestjs/testing';
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from '@nestjs/platform-fastify';
-import { AppModule } from '../src/app.module';
+import { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { createApp as createBootstrapApp } from '../src/bootstrap/create-app';
 
 // Типы для ответов API
 interface HealthResponse {
@@ -87,15 +83,7 @@ interface ProblemJsonResponse {
 }
 
 async function createApp(): Promise<NestFastifyApplication> {
-  const moduleFixture = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
-
-  const app = moduleFixture.createNestApplication<NestFastifyApplication>(
-    new FastifyAdapter(),
-  );
-
-  app.setGlobalPrefix('api/v1');
+  const app = await createBootstrapApp();
 
   // ВАЖНО: init() должен быть вызван ПЕРЕД установкой кастомного notFoundHandler,
   // потому что NestJS внутри init() регистрирует свой дефолтный handler.

@@ -2,12 +2,8 @@ process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = 'sqlite::memory:';
 jest.resetModules();
 
-import { Test } from '@nestjs/testing';
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from '@nestjs/platform-fastify';
-import { AppModule } from '../src/app.module';
+import { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { createApp } from '../src/bootstrap/create-app';
 
 interface ProjectResponse {
   id: string;
@@ -43,13 +39,7 @@ describe('Phase 1 Core Domain (e2e)', () => {
   let pageId: string;
 
   beforeAll(async () => {
-    const moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter(),
-    );
-    app.setGlobalPrefix('api/v1');
+    app = await createApp();
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });

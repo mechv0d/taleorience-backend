@@ -42,3 +42,28 @@ export const blocks = sqliteTable('blocks', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
+
+export const assets = sqliteTable('assets', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull(),
+  folderId: text('folder_id'),
+  type: text('type').notNull(),
+  path: text('path').notNull(),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  width: integer('width'),
+  height: integer('height'),
+  metadataJson: text('metadata_json').notNull().default('{}'),
+  usageCount: integer('usage_count').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const assetFolders = sqliteTable('asset_folders', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull(),
+  parentId: text('parent_id'),
+  name: text('name').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
