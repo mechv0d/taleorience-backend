@@ -36,3 +36,4 @@ coverage/
 
 # Runtime file storage
 apps/api/storage/
+apps/api/data/
