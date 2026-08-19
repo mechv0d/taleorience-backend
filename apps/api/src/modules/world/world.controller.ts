@@ -21,6 +21,8 @@ import {
   CreateBlockUseCase,
   UpdateBlockUseCase,
   DeleteGameObjectUseCase,
+  ListGameObjectsUseCase,
+  GetGameObjectTreeUseCase,
   ListPageBlocksUseCase,
   GetBlockUseCase,
   DeleteBlockUseCase,
@@ -36,6 +38,8 @@ export class WorldController {
     // 1. Переименовываем свойства, чтобы они не конфликтовали с именами методов
     private readonly createGameObjectUseCase: CreateGameObjectUseCase,
     private readonly deleteGameObjectUseCase: DeleteGameObjectUseCase,
+    private readonly listGameObjectsUseCase: ListGameObjectsUseCase,
+    private readonly getGameObjectTreeUseCase: GetGameObjectTreeUseCase,
     private readonly createBlockUseCase: CreateBlockUseCase,
     private readonly updateBlockUseCase: UpdateBlockUseCase,
     private readonly listPageBlocksUseCase: ListPageBlocksUseCase,
@@ -59,6 +63,16 @@ export class WorldController {
       dto.name,
       dto.parentId ?? null,
     );
+  }
+
+  @Get('game-objects')
+  listGameObjects(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return this.listGameObjectsUseCase.execute(projectId);
+  }
+
+  @Get('game-objects/tree')
+  getGameObjectTree(@Param('projectId', ParseUUIDPipe) projectId: string) {
+    return this.getGameObjectTreeUseCase.execute(projectId);
   }
 
   @Get('game-objects/:goId/pages')
