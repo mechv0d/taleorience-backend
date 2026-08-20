@@ -142,7 +142,11 @@ export class PgBlockRepository implements BlockRepository {
       updatedAt: entity.updatedAt.toISOString(),
     }).onConflictDoUpdate({
       target: schema.blocks.id,
-      set: { dataJson: JSON.stringify(entity.data), updatedAt: entity.updatedAt.toISOString() }
+      set: {
+        dataJson: JSON.stringify(entity.data),
+        sortOrder: entity.sortOrder,
+        updatedAt: entity.updatedAt.toISOString(),
+      }
     }).execute();
   }
   async delete(id: Guid, trx?: TransactionContext): Promise<void> {
