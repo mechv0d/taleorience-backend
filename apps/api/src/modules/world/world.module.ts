@@ -5,6 +5,8 @@ import {
   CreateBlockUseCase,
   UpdateBlockUseCase,
   DeleteGameObjectUseCase,
+  ListGameObjectsUseCase,
+  GetGameObjectTreeUseCase,
   ListPageBlocksUseCase,
   GetBlockUseCase,
   DeleteBlockUseCase,
@@ -86,6 +88,18 @@ import {
         SEARCH_INDEX_REPOSITORY,
         UNIT_OF_WORK,
       ],
+    },
+    {
+      provide: ListGameObjectsUseCase,
+      useFactory: (goRepo: GameObjectRepository) =>
+        new ListGameObjectsUseCase(goRepo),
+      inject: [GAME_OBJECT_REPOSITORY],
+    },
+    {
+      provide: GetGameObjectTreeUseCase,
+      useFactory: (goRepo: GameObjectRepository) =>
+        new GetGameObjectTreeUseCase(goRepo),
+      inject: [GAME_OBJECT_REPOSITORY],
     },
     {
       provide: ListPageBlocksUseCase,

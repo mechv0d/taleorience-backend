@@ -78,6 +78,38 @@ export class CreateGameObjectUseCase {
   }
 }
 
+export class ListGameObjectsUseCase {
+  constructor(private readonly goRepo: GameObjectRepository) {}
+  async execute(projectId: Guid): Promise<GameObject[]> {
+    const items = await this.goRepo.findByProjectId(projectId);
+    return items.sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+}
+
+export interface GameObjectTreeNode extends GameObject {
+  children: GameObjectTreeNode[];
+}
+
+export class GetGameObjectTreeUseCase {
+  constructor(private readonly goRepo: GameObjectRepository) {}
+  async execute(projectId: Guid): Promise<GameObjectTreeNode[]> {
+    const items = await this.goRepo.findByProjectId(projectId);
+    const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
+    const byId = new Map<Guid, GameObjectTreeNode>();
+    for (const go of sorted) byId.set(go.id, { ...go, children: [] });
+
+    const roots: GameObjectTreeNode[] = [];
+    for (const node of byId.values()) {
+      if (node.parentId && byId.has(node.parentId)) {
+        byId.get(node.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+    return roots;
+  }
+}
+
 export class DeleteGameObjectUseCase {
   constructor(
     private readonly goRepo: GameObjectRepository,

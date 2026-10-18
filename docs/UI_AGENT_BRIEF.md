@@ -36,6 +36,8 @@ Project (one world)
 ```
 
 - **GameObject** = a node in the world tree. `{ id, projectId, parentId, name, icon, sortOrder, ... }`.
+  Fetch all objects: `GET /game-objects` (flat, sorted by `sortOrder`); fetch the
+  navigation tree: `GET /game-objects/tree` (nested `{ ...GameObject, children: [] }`).
 - **Page** = a document owned by a GameObject. `{ id, projectId, gameObjectId, title, sortOrder, ... }`.
 - **Block** = a content unit inside a Page. `{ id, projectId, pageId, type, data, sortOrder, ... }`.
   `data` is a JSON object whose shape depends on `type`.

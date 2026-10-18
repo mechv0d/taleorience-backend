@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: taleorience-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: frankfurt
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_MODE
+        value: production
+      - key: AUTH_MODE
+        value: none
+      - key: LOCALES_ROOT
+        value: /app/locales
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: S3_FORCE_PATH_STYLE
+        value: 'true'
+      - key: DATABASE_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: APP_VERSION
+        value: '0.4.0'
+    disk:
+      name: taleorience-data
+      mountPath: /app/data
+      sizeGB: 1
