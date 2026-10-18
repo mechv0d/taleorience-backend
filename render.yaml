@@ -34,7 +34,3 @@ services:
         sync: false
       - key: APP_VERSION
         value: '0.4.0'
-    disk:
-      name: taleorience-data
-      mountPath: /app/data
-      sizeGB: 1
