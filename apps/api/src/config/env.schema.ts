@@ -40,10 +40,10 @@ export const envSchema = z.object({
 
   APP_VERSION: z.string().default('0.0.0'),
 
+  CORS_ORIGINS: z.string().optional(),
+
   GIT_COMMIT: z.string().optional(),
 });
-
-export type Env = z.infer<typeof envSchema>;
 
 export function validateEnv(config: Record<string, unknown>): Env {
   const parsed = envSchema.safeParse(config);

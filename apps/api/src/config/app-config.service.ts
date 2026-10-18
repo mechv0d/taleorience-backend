@@ -89,6 +89,13 @@ export class AppConfigService {
     );
   }
 
+  get corsOrigins(): string | string[] | boolean {
+    const raw = this.configService.get('CORS_ORIGINS');
+    if (!raw) return this.appMode === 'local' ? true : false;
+    if (raw === '*') return true;
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
   get defaultLocale(): string {
     return this.configService.get('DEFAULT_LOCALE') ?? 'en';
   }
